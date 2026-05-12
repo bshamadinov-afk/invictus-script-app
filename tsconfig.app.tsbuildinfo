@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/data/branches.ts","./src/data/script-defaults.ts","./src/data/script-part1.ts","./src/data/script-part2.ts","./src/data/script.ts","./src/store/scriptStore.ts","./src/types/script.ts"],"version":"5.9.3"}
