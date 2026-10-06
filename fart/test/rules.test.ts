@@ -412,3 +412,16 @@ describe('more than two players', () => {
     expect(s.activePlayer).toBe(1);
   });
 });
+
+describe('bot', () => {
+  it('plays a forced Joker as a 2, then sheds another card', async () => {
+    const { chooseBotAction } = await import('../src/engine/bot');
+    const { getPlayerView } = await import('../src/engine/view');
+    const j = c('J'), three = c(3);
+    let s = makeState({ hand: [j, three], centerPile: pile(14) });
+    const a = chooseBotAction(getPlayerView(s, 0));
+    expect(a).toMatchObject({ type: 'playCards', cardIds: [j.id], jokerAs: 2 });
+    s = ok(applyAction(s, a));
+    expect(chooseBotAction(getPlayerView(s, 0))).toMatchObject({ type: 'playCards', cardIds: [three.id] });
+  });
+});

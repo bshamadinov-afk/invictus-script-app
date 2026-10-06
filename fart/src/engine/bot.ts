@@ -7,7 +7,8 @@ import type { PlayerView } from './view';
 /**
  * Deliberately simple prototype bot. It only reads its own PlayerView, so it
  * cannot cheat. Strategy: dump the lowest ordinary rank (as many copies as it
- * has), keep 2/7/10 and Jokers for when nothing else fits.
+ * has), keep 2/7/10 and Jokers for when nothing else fits, and play a forced
+ * Joker as a 2 so it can shed another card.
  */
 export function chooseBotAction(
   view: PlayerView,
@@ -42,20 +43,21 @@ export function chooseBotAction(
 function score(option: PlayOption, cards: readonly Card[], rules: RulesConfig): number {
   const jokers = option.cardIds.filter((id) => cards.find((c) => c.id === id && isJoker(c))).length;
   if (jokers > 0) {
-    // Jokers are a last resort; when forced, burn with them so the pile cannot bounce back and forth.
-    return -1000 - jokers * 100 + (burns(option.effectiveRank, rules) ? 50 : 0);
+    // Jokers are a last resort. When forced, play one as a 2: the bot keeps the turn and
+    // sheds another card on a clean slate, instead of handing the move to the next player.
+    return -1000 - jokers * 100 + (continues(option.effectiveRank, rules) ? 60 : 0);
   }
   const special = rules.specials[option.effectiveRank] !== undefined;
   // Lower rank is better, more cards is better, specials are saved.
   return -option.effectiveRank * 10 + option.cardIds.length * 3 - (special ? 200 : 0);
 }
 
-function burns(rank: Rank, rules: RulesConfig): boolean {
-  return resolutionFor(rules, { playedRank: rank, requiredRankBefore: null, count: 1 }).burn;
+function continues(rank: Rank, rules: RulesConfig): boolean {
+  return resolutionFor(rules, { playedRank: rank, requiredRankBefore: null, count: 1 }).nextPlayer === 'same';
 }
 
 function pickJokerRank(playable: Rank[], rules: RulesConfig): Rank {
-  const ordinary = playable.filter((r) => rules.specials[r] === undefined);
-  // Lowest ordinary rank that fits; otherwise the lowest special (2 before 7 before 10).
-  return ordinary[0] ?? playable[0] ?? 2;
+  // A revealed face-down Joker is best played as a 2: the follow-up card can be anything,
+  // so even the next blind face-down card is guaranteed to fit.
+  return playable.find((r) => continues(r, rules)) ?? playable[0] ?? 2;
 }
