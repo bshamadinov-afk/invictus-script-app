@@ -12,7 +12,26 @@ npm run typecheck
 npm run build:web # builds web/index.html: playable page (you vs 1–5 bots)
 ```
 
-Open `web/index.html` in a browser to play. It is a single self-contained
+## Online rooms
+
+```bash
+npm run build && npm start   # http://localhost:3000
+```
+
+`server/` is a small WebSocket server (`ws`) that runs the same engine
+authoritatively. A player creates a room and gets a 4-letter code and link
+(`https://host/#ABCD`); friends join with it; the host starts, and empty seats
+up to the chosen size are filled with bots. Each client only ever receives its
+own `PlayerView`, so hands and face-down cards never leave the server. A player
+who drops keeps their seat (a rejoin token in localStorage); after 30 s a bot
+plays for them until they return. Rooms live in memory and are removed after
+15 idle minutes.
+
+Deploy: `render.yaml` at the repository root is a Render blueprint (free web
+service, root `fart/`). On the free plan the service sleeps when idle, so the
+first visit can take about a minute, and a restart clears open rooms.
+
+Open `web/index.html` in a browser to play offline against bots. It is a single self-contained
 file, so it can be deployed as-is (e.g. Vercel with `fart/web` as the root).
 
 ## Layout

@@ -256,15 +256,44 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
   .slot.blind .card.down { animation: none; box-shadow: 0 0 0 3px var(--accent); }
   .card { transition: none; }
 }
+
+/* online: menu, lobby, connection banner */
+.field { display: grid; gap: 6px; }
+.field label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.input {
+  width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--table); color: var(--text); font: 600 16px var(--body); -webkit-user-select: text; user-select: text;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.input.code { font-family: var(--display); letter-spacing: .3em; text-transform: uppercase; text-align: center; }
+.join-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.join-row .btn { padding-inline: 18px; }
+.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.room-code { font-family: var(--display); font-size: 40px; letter-spacing: .2em; text-align: center; color: var(--text); margin: 2px 0; }
+.share { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.share .link { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; -webkit-user-select: text; user-select: text; }
+.lobby-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lobby-list li { display: flex; justify-content: space-between; padding: 9px 12px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); font-size: 15px; }
+.lobby-list li span { color: var(--muted); font-size: 13px; }
+.lobby-list li.me { outline: 1.5px solid var(--accent); }
+.form-error { color: var(--burn); font-size: 14px; min-height: 1.2em; margin: 0; }
+.banner {
+  position: fixed; left: 50%; top: calc(8px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 40;
+  background: var(--burn); color: var(--accent-ink); font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 999px;
+}
+.room-chip { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.room-chip b { color: var(--text); font-family: var(--display); font-weight: 400; letter-spacing: .1em; }
+.seat .away { color: var(--burn); }
 </style>
 
 <div class="app" id="app">
   <div class="top">
     <span class="logo">FART</span>
-    <div class="meta"><span>Сожжено <b id="burned">0</b></span></div>
+    <div class="meta"><span class="room-chip" id="room-chip" hidden>Код <b id="room-chip-code"></b></span><span title="Сожжено карт">🔥 <b id="burned">0</b></span></div>
     <div style="display:flex;gap:6px">
       <button class="icon-btn" id="help-btn" type="button">Правила</button>
-      <button class="icon-btn" id="new-btn" type="button">Заново</button>
+      <button class="icon-btn" id="new-btn" type="button">Меню</button>
     </div>
   </div>
 
@@ -285,7 +314,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     <div class="status" id="status"></div>
   </section>
 
-  <section class="seat" id="seat-0">
+  <section class="seat" id="me-seat">
     <div class="seat-head"><span class="name">Вы</span><span class="tag" id="me-tag"></span></div>
     <div class="stacks" id="me-stacks"></div>
   </section>
@@ -300,6 +329,8 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     <button class="btn" id="play-btn" type="button">Сходить</button>
   </div>
 </div>
+
+<div class="banner" id="banner" hidden>Нет связи. Переподключаюсь…</div>
 
 <div class="sheet-bg" id="joker-sheet" hidden>
   <div class="sheet" role="dialog" aria-labelledby="joker-title">
@@ -323,12 +354,54 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       <li>Сначала рука, потом открытые карты, потом закрытые <b>вслепую</b>. Ход идёт <b>по часовой</b>.</li>
       <li>Последний, у кого остались карты, проиграл.</li>
     </ul>
+
+    <div id="online-menu" hidden>
+      <div style="display:grid;gap:10px">
+        <div class="divider">С друзьями онлайн</div>
+        <div class="field">
+          <label for="name-input">Ваше имя</label>
+          <input class="input" id="name-input" maxlength="16" autocomplete="nickname" placeholder="Например, Батыр">
+        </div>
+        <button class="btn" id="create-btn" type="button">Создать комнату</button>
+        <div class="field">
+          <label for="code-input">Или войти по коду</label>
+          <div class="join-row">
+            <input class="input code" id="code-input" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD">
+            <button class="btn ghost" id="join-btn" type="button">Войти</button>
+          </div>
+        </div>
+        <p class="form-error" id="menu-error"></p>
+        <div class="divider">Или с ботами</div>
+      </div>
+    </div>
+
     <p>Сколько игроков за столом, считая вас? Остальные — боты.</p>
     <div class="counts" id="counts"></div>
-    <div class="two-btns">
+    <div class="two-btns" id="new-btns">
       <button class="btn ghost" id="new-cancel" type="button">Отмена</button>
-      <button class="btn" id="new-start" type="button">Играть</button>
+      <button class="btn" id="new-start" type="button">Играть с ботами</button>
     </div>
+  </div>
+</div>
+
+<div class="sheet-bg" id="lobby-sheet" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="lobby-title">
+    <h2 id="lobby-title">Комната</h2>
+    <div class="room-code" id="lobby-code">····</div>
+    <div class="share">
+      <span class="link" id="lobby-link"></span>
+      <button class="btn ghost" id="copy-btn" type="button">Копировать</button>
+    </div>
+    <p>Отправьте друзьям ссылку или код. За столом:</p>
+    <ul class="lobby-list" id="lobby-list"></ul>
+    <div id="lobby-host" hidden style="display:grid;gap:10px">
+      <p>Всего игроков (пустые места займут боты):</p>
+      <div class="counts" id="lobby-counts"></div>
+      <button class="btn" id="lobby-start" type="button">Начать игру</button>
+    </div>
+    <p id="lobby-wait" hidden>Ждём, пока создатель комнаты начнёт игру…</p>
+    <p class="form-error" id="lobby-error"></p>
+    <button class="btn ghost" id="lobby-leave" type="button">Выйти из комнаты</button>
   </div>
 </div>
 
@@ -370,55 +443,43 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 <script>
 (() => {
   const F = window.FART;
-  const ME = 0;
+  const ONLINE = window.FART_SERVER === true;
   const SUIT = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
   const RANK = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
   const rl = (r) => RANK[r] || String(r);
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (id) => document.getElementById(id);
-  const name = (id) => id === ME ? 'Вы' : `Бот ${id}`;
-  const STORE = 'fart-game-v2';
-  const SEAT_AREAS = { 1: ['t'], 2: ['tl', 'tr'], 3: ['l', 't', 'r'], 4: ['l', 'tl', 'tr', 'r'], 5: ['l', 'tl', 't', 'tr', 'r'] };
+  const LOCAL_STORE = 'fart-game-v2';
+  const ONLINE_STORE = 'fart-online-v1';
+  const NAME_STORE = 'fart-name';
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
 
-  let state, seed, botRng;
-  let playerCount = 6;
+  // What the table shows. Both modes feed it a PlayerView; nothing else about other players is known.
+  let mode = null; // 'local' | 'online'
+  let view = null;
+  let me = 0;
+  let names = [];
   let selected = [];
   let busy = false;
-  let jokerMode = null; // 'play' | 'reveal'
+  let jokerMode = null;
   let statusHtml = '';
   let shownOutSheet = false;
+  let queue = Promise.resolve();
+  const enqueue = (fn) => { queue = queue.then(fn).catch((e) => console.error(e)); };
 
-  // ---------- persistence ----------
-  function save() {
-    try { localStorage.setItem(STORE, JSON.stringify({ state, seed, shownOutSheet })); } catch (e) {}
-  }
-  function load() {
-    try {
-      const data = JSON.parse(localStorage.getItem(STORE) || 'null');
-      if (!data || !data.state || !Array.isArray(data.state.players)) return false;
-      state = data.state; seed = data.seed; shownOutSheet = !!data.shownOutSheet;
-      playerCount = state.players.length;
-      botRng = F.createRng(seed ^ 0x5bd1e995 ^ state.turn);
-      return true;
-    } catch (e) { return false; }
-  }
-  function newGame(n = playerCount) {
-    playerCount = n;
-    seed = Math.floor(Math.random() * 2 ** 31);
-    state = F.createGame({ seed, playerCount: n });
-    botRng = F.createRng(seed ^ 0x5bd1e995);
-    selected = []; shownOutSheet = false;
-    statusHtml = state.activePlayer === ME
-      ? '<strong>Вы ходите первым.</strong> Выберите карты и нажмите «Сходить».'
-      : `<strong>Первым ходит ${name(state.activePlayer)}.</strong>`;
-    $('end-sheet').hidden = true;
-    buildSeats();
-    save();
-    render();
-    maybeBot();
-  }
+  // local mode
+  let state = null, seed = 0, botRng = null, botTimer = null, localCount = 6;
+  // online mode
+  let ws = null, room = null, pendingBefore = null, retry = 0, lobbyCount = 6;
 
-  // ---------- card markup ----------
+  const name = (id) => id === me ? 'Вы' : (names[id] || `Игрок ${id + 1}`);
+  const isMe = (id) => id === me;
+
+  // ---------- cards ----------
   function cardEl(card, opts = {}) {
     const el = document.createElement('div');
     if (!card) { el.className = 'card back'; return el; }
@@ -437,44 +498,59 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
   const sortCards = (cards) => cards.slice().sort((a, b) => (a.rank === 'joker' ? 99 : a.rank) - (b.rank === 'joker' ? 99 : b.rank));
   const zoneOf = (v) => v.hand.length ? 'hand' : v.faceUp.length ? 'faceUp' : 'faceDown';
   function hash(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); }
+  const ctxOf = (v) => ({ requiredRank: v.requiredRank, pendingContinuation: v.pendingContinuation !== null });
+  function hasLegal(v) {
+    const zone = zoneOf(v);
+    if (zone === 'faceDown') return v.faceDownCount > 0;
+    return F.playOptions(v[zone], ctxOf(v), F.DEFAULT_RULES).length > 0;
+  }
 
-  // ---------- render ----------
+  // ---------- table ----------
+  let seatSig = '';
   function buildSeats() {
+    const sig = view.playerCount + ':' + view.opponents.map((o) => o.id).join(',');
+    if (sig === seatSig) return;
+    seatSig = sig;
     const root = $('table');
     root.querySelectorAll('.seat').forEach((el) => el.remove());
-    const bots = state.players.length - 1;
-    root.classList.toggle('solo', bots === 1);
-    // Seats go around the oval like a poker table: you at the bottom, then clockwise
-    // (left, top, right) in turn order, evenly spaced by angle.
-    const n = state.players.length;
-    for (let id = 1; id < n; id++) {
-      const seat = document.createElement('section'); seat.id = `seat-${id}`; seat.className = 'seat';
-      const angle = (Math.PI / 2) + (id * 2 * Math.PI) / n;
+    const n = view.playerCount;
+    root.classList.toggle('solo', n === 2);
+    // Like a poker table: you at the bottom, everyone else clockwise in turn order, evenly spaced.
+    view.opponents.forEach((o, i) => {
+      const k = i + 1;
+      const seat = document.createElement('section'); seat.id = `seat-${o.id}`; seat.className = 'seat';
+      const angle = Math.PI / 2 + (k * 2 * Math.PI) / n;
       seat.style.left = `${50 + Math.cos(angle) * 34}%`;
       seat.style.top = `${51 + Math.sin(angle) * 39}%`;
-      seat.innerHTML = `<div class="seat-head"><span class="name">${name(id)}</span><span class="tag"></span></div>
-        <div class="bot-hand"></div><div class="stacks"></div>`;
+      seat.innerHTML = '<div class="seat-head"><span class="name"></span><span class="tag"></span></div><div class="bot-hand"></div><div class="stacks"></div>';
       root.appendChild(seat);
-    }
+    });
   }
 
   function render(hiddenIds = new Set()) {
-    const v = F.getPlayerView(state, ME);
+    if (!view) return;
+    buildSeats();
+    const v = view;
     const playing = v.phase === 'playing';
-    const myTurn = playing && v.activePlayer === ME;
+    const myTurn = playing && v.activePlayer === me;
     const zone = zoneOf(v);
 
     $('burned').textContent = v.burnedCount;
     renderDeck(v.drawDeckCount);
+    $('room-chip').hidden = mode !== 'online' || !room;
+    if (room) $('room-chip-code').textContent = room.code;
 
     for (const o of v.opponents) {
       const seat = $(`seat-${o.id}`); if (!seat) continue;
       const active = playing && v.activePlayer === o.id;
       seat.classList.toggle('turn', active);
       seat.classList.toggle('out', o.place !== null);
+      seat.querySelector('.name').textContent = name(o.id);
       const tag = seat.querySelector('.tag');
-      tag.textContent = o.place !== null ? `${o.place}-е место` : active ? 'ходит…' : '';
+      const away = room && room.players[o.id] && !room.players[o.id].bot && !room.players[o.id].connected;
+      tag.textContent = o.place !== null ? `${o.place}-е место` : away ? 'нет связи' : active ? 'ходит…' : '';
       tag.classList.toggle('place', o.place !== null);
+      tag.classList.toggle('away', !!away && o.place === null);
       const h = seat.querySelector('.bot-hand'); h.innerHTML = '';
       h.appendChild(cardEl(null));
       const t = document.createElement('span'); t.innerHTML = o.handCount ? `в руке <b>${o.handCount}</b>` : 'рука пуста';
@@ -482,9 +558,9 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       renderStacks(seat.querySelector('.stacks'), o.faceUp, o.faceDownCount, null, hiddenIds, false);
     }
 
-    $('seat-0').classList.toggle('turn', myTurn);
+    $('me-seat').classList.toggle('turn', myTurn);
+    $('me-seat').classList.toggle('out', v.place !== null);
     $('me-chip').classList.toggle('turn', myTurn);
-    $('seat-0').classList.toggle('out', v.place !== null);
     $('me-tag').textContent = v.place !== null ? `${v.place}-е место` : myTurn ? 'ваш ход' : '';
     renderStacks($('me-stacks'), v.faceUp, v.faceDownCount, myTurn ? zone : null, hiddenIds, true);
 
@@ -507,7 +583,6 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       const c = document.createElement('span'); c.className = 'pile-count'; c.textContent = `${v.centerPile.length} шт.`; pile.appendChild(c);
     }
 
-    // requirement chip
     const need = $('need');
     const whoMust = myTurn ? 'закройте' : 'закрывает';
     if (!playing) need.innerHTML = 'Партия окончена';
@@ -519,7 +594,6 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 
     $('status').innerHTML = statusHtml;
 
-    // hand
     const hand = $('hand'); hand.innerHTML = '';
     const cards = sortCards(v.hand);
     hand.classList.toggle('tight', cards.length > 6);
@@ -536,8 +610,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       zone === 'faceUp' ? 'Рука пуста · играйте открытыми картами' :
       'Остались закрытые · нажмите на карту, на удачу';
 
-    // buttons
-    const legal = myTurn && F.hasLegalPlay(state, ME);
+    const legal = myTurn && hasLegal(v);
     $('play-btn').disabled = !(myTurn && selected.length && !busy);
     $('take-btn').disabled = !(myTurn && !legal && !v.pendingContinuation && !v.pendingReveal && !busy);
     $('play-btn').textContent = selected.length > 1 ? `Сходить (${selected.length})` : 'Сходить';
@@ -547,19 +620,15 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     const deck = $('draw-deck');
     const prev = Number(deck.dataset.count ?? count);
     deck.innerHTML = '';
-    if (!count) {
-      const e = document.createElement('div'); e.className = 'deck-empty'; deck.appendChild(e);
-    }
+    if (!count) { const e = document.createElement('div'); e.className = 'deck-empty'; deck.appendChild(e); }
     // One visible layer per few cards, so the stack visibly thins as the deck runs down.
     const layers = Math.min(7, Math.ceil(count / 6));
     for (let i = 0; i < layers; i++) {
-      const b = cardEl(null);
-      b.style.transform = `translate(${i}px, ${-i}px)`;
-      deck.appendChild(b);
+      const b = cardEl(null); b.style.transform = `translate(${i}px, ${-i}px)`; deck.appendChild(b);
     }
-    const label = document.createElement('span'); label.className = 'deck-count';
-    label.textContent = count ? `${count}` : 'пусто';
-    deck.appendChild(label);
+    const lab = document.createElement('span'); lab.className = 'deck-count';
+    lab.textContent = count ? `${count}` : 'пусто';
+    deck.appendChild(lab);
     deck.setAttribute('aria-label', `Колода: ${count}`);
     if (count < prev) { deck.classList.remove('bump'); void deck.offsetWidth; deck.classList.add('bump'); }
     deck.dataset.count = String(count);
@@ -597,11 +666,10 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     }
   }
 
-  // ---------- selection ----------
+  // ---------- selection & moves ----------
   function toggle(card) {
     if (busy) return;
-    const v = F.getPlayerView(state, ME);
-    const pool = [...v.hand, ...v.faceUp];
+    const pool = [...view.hand, ...view.faceUp];
     if (selected.includes(card.id)) {
       selected = selected.filter((id) => id !== card.id);
     } else {
@@ -614,7 +682,6 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     render();
   }
 
-  // ---------- actions ----------
   function rects(ids) {
     const m = new Map();
     for (const id of ids) { const el = document.querySelector(`#app [data-id="${id}"]`); if (el) m.set(id, el.getBoundingClientRect()); }
@@ -623,33 +690,31 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 
   function onPlay() {
     if (busy || !selected.length) return;
-    const v = F.getPlayerView(state, ME);
-    const pool = [...v.hand, ...v.faceUp];
+    const pool = [...view.hand, ...view.faceUp];
     const cards = selected.map((id) => pool.find((c) => c.id === id)).filter(Boolean);
     const natural = cards.find((c) => c.rank !== 'joker');
     if (!natural) { openJoker('play'); return; }
-    act({ type: 'playCards', player: ME, cardIds: selected.slice(), ...(cards.some((c) => c.rank === 'joker') ? { jokerAs: natural.rank } : {}) });
+    act({ type: 'playCards', player: me, cardIds: selected.slice(), ...(cards.some((c) => c.rank === 'joker') ? { jokerAs: natural.rank } : {}) });
   }
 
   function reveal(index, slotEl) {
     if (busy) return;
-    act({ type: 'revealFaceDown', player: ME, index }, { reveal: slotEl.getBoundingClientRect() });
+    act({ type: 'revealFaceDown', player: me, index }, { reveal: slotEl.getBoundingClientRect() });
   }
 
-  function openJoker(mode) {
-    jokerMode = mode;
-    const v = F.getPlayerView(state, ME);
+  function openJoker(m) {
+    jokerMode = m;
     const grid = $('joker-ranks'); grid.innerHTML = '';
     const powers = { 2: 'ещё ход', 7: 'перевод', 10: 'сжечь' };
     F.RANKS.forEach((r) => {
       const b = document.createElement('button'); b.type = 'button';
       b.innerHTML = rl(r) + (powers[r] ? `<small>${powers[r]}</small>` : '');
-      b.disabled = !F.isRankPlayable(r, v.requiredRank, v.pendingContinuation !== null, F.DEFAULT_RULES);
+      b.disabled = !F.isRankPlayable(r, view.requiredRank, view.pendingContinuation !== null, F.DEFAULT_RULES);
       b.onclick = () => chooseJoker(r);
       grid.appendChild(b);
     });
-    $('joker-cancel').hidden = mode === 'reveal';
-    $('joker-hint').textContent = mode === 'reveal'
+    $('joker-cancel').hidden = m === 'reveal';
+    $('joker-hint').textContent = m === 'reveal'
       ? 'Вам повезло: вскрылся джокер. Выберите, какой картой он будет.'
       : 'Джокер становится любой картой и получает её силу: 2 — ход ещё раз, 7 — перевод, 10 — сжечь стопку.';
     $('joker-sheet').hidden = false;
@@ -657,68 +722,231 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 
   function chooseJoker(rank) {
     $('joker-sheet').hidden = true;
-    if (jokerMode === 'reveal') act({ type: 'chooseJokerIdentity', player: ME, rank });
-    else act({ type: 'playCards', player: ME, cardIds: selected.slice(), jokerAs: rank });
+    if (jokerMode === 'reveal') act({ type: 'chooseJokerIdentity', player: me, rank });
+    else act({ type: 'playCards', player: me, cardIds: selected.slice(), jokerAs: rank });
   }
 
   const ERR = {
-    ILLEGAL_RANK: () => `Так нельзя: нужна ${rl(state.requiredRank)} или выше, либо 2, 7, 10 или джокер.`,
+    ILLEGAL_RANK: () => `Так нельзя: нужна ${rl(view.requiredRank)} или выше, либо 2, 7, 10 или джокер.`,
     MIXED_RANKS: () => 'За один ход кладутся только карты одного достоинства.',
     TOO_MANY_CARDS: () => 'Не больше 4 карт за ход.',
     HAS_LEGAL_MOVE: () => 'Забрать стопку можно, только когда нечем ходить.',
     MUST_CONTINUE: () => 'Нужно сходить ещё раз.',
     INVALID_CARDS: () => 'Сначала доиграйте карты из руки.',
     NOT_YOUR_TURN: () => 'Сейчас не ваш ход.',
+    ROOM_NOT_FOUND: () => 'Комнаты с таким кодом нет. Проверьте код.',
+    ROOM_FULL: () => 'В комнате уже 6 игроков.',
+    GAME_STARTED: () => 'В этой комнате игра уже идёт.',
+    NOT_HOST: () => 'Начать может только создатель комнаты.',
   };
+  const errText = (code, fallback) => (ERR[code] || (() => fallback || 'Что-то пошло не так.'))();
 
-  async function act(action, opts = {}) {
-    const res = F.applyAction(state, action);
-    if (!res.ok) {
-      statusHtml = `<strong>${(ERR[res.code] || (() => res.message))()}</strong>`;
-      render();
+  function act(action, opts = {}) {
+    if (busy) return;
+    const before = { rects: rects(action.type === 'playCards' ? action.cardIds : []), pile: $('pile').getBoundingClientRect(), opts };
+    if (mode === 'local') {
+      const res = F.applyAction(state, action);
+      if (!res.ok) { statusHtml = `<strong>${errText(res.code, res.message)}</strong>`; render(); return; }
+      state = res.state;
+      saveLocal();
+      enqueue(() => show(F.getPlayerView(state, me), res.events, before));
       return;
     }
+    if (!ws || ws.readyState !== 1) { statusHtml = '<strong>Нет связи с сервером. Подождите секунду.</strong>'; render(); return; }
+    busy = true; render();
+    pendingBefore = before;
+    send({ t: 'action', action });
+  }
+
+  // Applies a new view: animate what happened, then hand control back.
+  async function show(newView, events, before) {
     busy = true;
-    const before = { rects: rects(action.type === 'playCards' ? action.cardIds : []), pile: $('pile').getBoundingClientRect() };
-    state = res.state;
-    selected = [];
-    save();
-    await animate(res.events, before, opts);
+    view = newView;
+    const mine = new Set([...view.hand, ...view.faceUp].map((c) => c.id));
+    selected = selected.filter((id) => mine.has(id));
+    await animate(events, before || { rects: new Map(), pile: $('pile').getBoundingClientRect(), opts: {} });
     busy = false;
     afterMove();
   }
 
   function afterMove() {
-    if (state.pendingReveal && state.activePlayer === ME) { render(); openJoker('reveal'); return; }
+    if (view.pendingReveal && view.activePlayer === me) { render(); openJoker('reveal'); return; }
     render();
-    if (state.phase === 'finished') { showEnd(); return; }
-    if (state.finishOrder.includes(ME) && !shownOutSheet) { shownOutSheet = true; save(); showEnd(); }
-    maybeBot();
+    if (view.phase === 'finished') { showEnd(); return; }
+    if (view.place !== null && !shownOutSheet) { shownOutSheet = true; saveLocal(); showEnd(); }
+    if (mode === 'local') maybeBot();
   }
 
-  let botTimer = null;
+  // ---------- local game vs bots ----------
+  function saveLocal() {
+    if (mode !== 'local' || !state) return;
+    store.set(LOCAL_STORE, { state, seed, shownOutSheet });
+  }
+  function loadLocal() {
+    const data = store.get(LOCAL_STORE);
+    if (!data || !data.state || !Array.isArray(data.state.players) || !data.state.finishOrder) return false;
+    startLocal(data.state, data.seed, !!data.shownOutSheet);
+    statusHtml = 'Партия продолжается.';
+    return true;
+  }
+  function startLocal(st, sd, outShown = false) {
+    leaveRoom();
+    mode = 'local'; me = 0; state = st; seed = sd; shownOutSheet = outShown;
+    localCount = st.players.length;
+    botRng = F.createRng(sd ^ 0x5bd1e995 ^ st.turn);
+    names = st.players.map((_, i) => i === 0 ? 'Вы' : `Бот ${i}`);
+    view = F.getPlayerView(state, me);
+    selected = [];
+  }
+  function newLocalGame(n) {
+    clearTimeout(botTimer); botTimer = null; busy = false;
+    const sd = Math.floor(Math.random() * 2 ** 31);
+    startLocal(F.createGame({ seed: sd, playerCount: n }), sd);
+    statusHtml = view.activePlayer === me
+      ? '<strong>Вы ходите первым.</strong> Выберите карты и нажмите «Сходить».'
+      : `<strong>Первым ходит ${name(view.activePlayer)}.</strong>`;
+    $('end-sheet').hidden = true;
+    saveLocal();
+    render();
+    maybeBot();
+  }
   function maybeBot() {
-    if (state.phase !== 'playing' || state.activePlayer === ME || botTimer) return;
+    if (mode !== 'local' || state.phase !== 'playing' || state.activePlayer === me || botTimer) return;
     busy = true; render();
-    const meOut = state.finishOrder.includes(ME);
-    const delay = meOut ? 380 : state.pendingContinuation || state.pendingReveal ? 600 : 800;
-    botTimer = setTimeout(async () => {
+    const delay = state.finishOrder.includes(me) ? 380 : state.pendingContinuation || state.pendingReveal ? 600 : 800;
+    botTimer = setTimeout(() => {
       botTimer = null;
-      const bot = state.activePlayer;
-      const action = F.chooseBotAction(F.getPlayerView(state, bot), botRng);
-      const res = F.applyAction(state, action);
+      if (mode !== 'local') return;
+      const res = F.applyAction(state, F.chooseBotAction(F.getPlayerView(state, state.activePlayer), botRng));
       if (!res.ok) { busy = false; statusHtml = 'Бот запутался. Начните новую партию.'; render(); return; }
-      const before = { rects: new Map(), pile: $('pile').getBoundingClientRect() };
       state = res.state;
-      save();
-      await animate(res.events, before, {});
-      busy = false;
-      afterMove();
+      saveLocal();
+      enqueue(() => show(F.getPlayerView(state, me), res.events));
     }, delay);
   }
 
+  // ---------- online ----------
+  function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+
+  function connect(onOpen) {
+    if (ws && ws.readyState <= 1) { if (ws.readyState === 1) onOpen(); else ws.addEventListener('open', onOpen, { once: true }); return; }
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.addEventListener('open', () => { retry = 0; $('banner').hidden = true; onOpen(); }, { once: true });
+    ws.addEventListener('message', (e) => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMessage(m); });
+    ws.addEventListener('close', () => {
+      ws = null;
+      const saved = store.get(ONLINE_STORE);
+      if (mode !== 'online' || !saved) return;
+      // Lost connection mid-room: keep trying and reclaim the same seat with the saved token.
+      $('banner').hidden = false;
+      busy = false; pendingBefore = null;
+      setTimeout(() => connect(() => send({ t: 'join', code: saved.code, token: saved.token })), Math.min(8000, 800 * 2 ** retry++));
+    });
+  }
+
+  function onMessage(m) {
+    if (m.t === 'joined') {
+      store.set(ONLINE_STORE, { code: m.code, token: m.token });
+      mode = 'online';
+      room = room && room.code === m.code ? room : { code: m.code, players: [], host: 0 };
+      try { history.replaceState(null, '', '#' + m.code); } catch (e) {}
+      return;
+    }
+    if (m.t === 'lobby') {
+      clearTimeout(botTimer); botTimer = null;
+      mode = 'online'; me = m.you;
+      room = { code: m.code, players: m.players, host: m.host };
+      names = m.players.map((p) => p.name);
+      showLobby();
+      return;
+    }
+    if (m.t === 'game') {
+      clearTimeout(botTimer); botTimer = null;
+      enqueue(() => {
+        const wasLobby = !$('lobby-sheet').hidden;
+        const newGame = !view || mode !== 'online' || m.view.turn < view.turn || m.view.playerCount !== view.playerCount;
+        mode = 'online'; me = m.you;
+        room = { code: m.code, players: m.players, host: m.host };
+        names = m.players.map((p) => p.name);
+        $('lobby-sheet').hidden = true; $('new-sheet').hidden = true;
+        if (newGame || wasLobby) {
+          shownOutSheet = false; selected = []; $('end-sheet').hidden = true;
+          if (m.view.turn === 0) statusHtml = m.view.activePlayer === me ? '<strong>Вы ходите первым.</strong>' : `<strong>Первым ходит ${name(m.view.activePlayer)}.</strong>`;
+        }
+        const before = pendingBefore; pendingBefore = null;
+        return show(m.view, m.events, before);
+      });
+      return;
+    }
+    if (m.t === 'error') {
+      const text = errText(m.code, m.message);
+      if (pendingBefore) { pendingBefore = null; busy = false; statusHtml = `<strong>${text}</strong>`; render(); return; }
+      if (!$('lobby-sheet').hidden) { $('lobby-error').textContent = text; return; }
+      if (m.code === 'ROOM_NOT_FOUND' || m.code === 'GAME_STARTED') { store.del(ONLINE_STORE); room = null; if (mode === 'online') mode = null; }
+      $('banner').hidden = true;
+      openNew(!view);
+      $('menu-error').textContent = text;
+    }
+  }
+
+  function myName() {
+    const n = $('name-input').value.trim();
+    store.set(NAME_STORE, n);
+    return n;
+  }
+
+  function createRoom() {
+    $('menu-error').textContent = '';
+    const n = myName();
+    connect(() => send({ t: 'create', name: n }));
+  }
+
+  function joinRoom() {
+    $('menu-error').textContent = '';
+    const code = $('code-input').value.trim().toUpperCase();
+    if (code.length !== 4) { $('menu-error').textContent = 'Код — это 4 буквы, например ABCD.'; return; }
+    const n = myName();
+    const saved = store.get(ONLINE_STORE);
+    connect(() => send({ t: 'join', code, name: n, ...(saved && saved.code === code ? { token: saved.token } : {}) }));
+  }
+
+  function leaveRoom() {
+    if (mode !== 'online' && !room) return;
+    send({ t: 'leave' });
+    store.del(ONLINE_STORE);
+    room = null; pendingBefore = null;
+    if (ws) { const w = ws; ws = null; w.close(); }
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    $('lobby-sheet').hidden = true; $('banner').hidden = true;
+  }
+
+  function shareLink() { return `${location.origin}${location.pathname}#${room.code}`; }
+
+  function showLobby() {
+    $('new-sheet').hidden = true; $('end-sheet').hidden = true;
+    $('lobby-code').textContent = room.code;
+    $('lobby-link').textContent = shareLink();
+    $('lobby-error').textContent = '';
+    const list = $('lobby-list'); list.innerHTML = '';
+    room.players.forEach((p, i) => {
+      const li = document.createElement('li'); li.className = i === me ? 'me' : '';
+      const b = document.createElement('b'); b.textContent = p.name + (i === me ? ' (вы)' : '');
+      const s = document.createElement('span'); s.textContent = i === room.host ? 'создатель' : p.connected ? 'в комнате' : 'нет связи';
+      li.append(b, s); list.appendChild(li);
+    });
+    const host = me === room.host;
+    $('lobby-host').hidden = !host;
+    $('lobby-wait').hidden = host;
+    if (host) {
+      lobbyCount = Math.max(lobbyCount, room.players.length);
+      renderCounts($('lobby-counts'), lobbyCount, room.players.length, (n) => { lobbyCount = n; });
+    }
+    $('lobby-sheet').hidden = false;
+  }
+
   // ---------- animation + narration ----------
-  async function animate(events, before, opts) {
+  async function animate(events, before) {
     const msgs = [];
     const flying = new Set();
     for (const e of events) if (e.type === 'cardsPlayed') e.cards.forEach((p) => flying.add(p.card.id));
@@ -729,37 +957,38 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
         msgs.push(`${who} — вслепую: <strong>${label(e.card)}</strong>${e.playable ? '' : ', не подходит'}`);
       } else if (e.type === 'cardsPlayed') {
         const txt = e.cards.map((p) => label(p.card, p.card.rank === 'joker' ? p.effectiveRank : null)).join(' ');
-        const again = e.player === ME ? ' — и ходите ещё раз' : ' — и ходит ещё раз';
+        const again = isMe(e.player) ? ' — и ходите ещё раз' : ' — и ходит ещё раз';
         const extra = { continue: again, transfer: ' — перевод хода', burn: '' }[e.effect] || '';
         msgs.push(`${who}: <strong>${txt}</strong>${extra}`);
-        await fly(e, before, opts);
+        await fly(e, isMe(e.player) ? before : { rects: new Map(), opts: {} });
       } else if (e.type === 'cardsDrawn') {
         await drawFly(e);
       } else if (e.type === 'pileBurned') {
         msgs.push(`🔥 Стопка сожжена (${e.count})`);
         await burn();
       } else if (e.type === 'pileTaken') {
-        msgs.push(`${e.reason === 'blindFail' ? 'Не повезло: ' : ''}${who} — ${e.player === ME ? 'забираете' : 'забирает'} стопку (${e.cards.length})`);
+        msgs.push(`${e.reason === 'blindFail' ? 'Не повезло: ' : ''}${who} — ${isMe(e.player) ? 'забираете' : 'забирает'} стопку (${e.cards.length})`);
         await sweep(e, before);
       } else if (e.type === 'playerFinished') {
-        msgs.push(e.player === ME ? `<strong>Вы вышли! ${e.place}-е место</strong>` : `<strong>${who} вышел — ${e.place}-е место</strong>`);
+        msgs.push(isMe(e.player) ? `<strong>Вы вышли! ${e.place}-е место</strong>` : `<strong>${who} вышел — ${e.place}-е место</strong>`);
       } else if (e.type === 'gameOver') {
-        msgs.push(e.loser === ME ? '<strong>Вы остались последним.</strong>' : `<strong>${name(e.loser)} остался последним.</strong>`);
+        msgs.push(isMe(e.loser) ? '<strong>Вы остались последним.</strong>' : `<strong>${name(e.loser)} остался последним.</strong>`);
       }
     }
     if (msgs.length) statusHtml = msgs.slice(-2).join('<br>');
   }
 
   function seatRect(player, from) {
-    if (player === ME) return (from === 'hand' ? $('hand') : $('me-stacks')).getBoundingClientRect();
-    return $(`seat-${player}`).getBoundingClientRect();
+    if (isMe(player)) return (from === 'hand' ? $('hand') : $('me-stacks')).getBoundingClientRect();
+    const el = $(`seat-${player}`);
+    return (el || $('table')).getBoundingClientRect();
   }
   const cardBox = (r) => ({ left: r.left + r.width / 2 - 25, top: r.top + r.height / 2 - 35, width: 50, height: 71 });
 
-  function fly(e, before, opts) {
+  function fly(e, before) {
     const t = $('pile').getBoundingClientRect();
     const target = { x: t.left + t.width / 2, y: t.top + t.height / 2 };
-    const fallback = opts.reveal || cardBox(seatRect(e.player, e.from));
+    const fallback = (before.opts && before.opts.reveal) || cardBox(seatRect(e.player, e.from));
     const anims = e.cards.map((p, i) => {
       const from = before.rects.get(p.card.id) || fallback;
       if (reduceMotion) return Promise.resolve();
@@ -770,10 +999,9 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       document.body.appendChild(el);
       const dx = target.x - (from.left + from.width / 2) + i * 10;
       const dy = target.y - (from.top + from.height / 2);
-      const scale = 56 / from.width;
       return el.animate([
         { transform: 'translate(0,0) rotate(0deg) scale(1)' },
-        { transform: `translate(${dx}px, ${dy}px) rotate(${(hash(p.card.id) % 15) - 7}deg) scale(${scale})` },
+        { transform: `translate(${dx}px, ${dy}px) rotate(${(hash(p.card.id) % 15) - 7}deg) scale(${56 / from.width})` },
       ], { duration: 420, delay: i * 70, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' })
         .finished.then(() => el.remove(), () => el.remove());
     });
@@ -783,9 +1011,9 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
   function drawFly(e) {
     if (reduceMotion) return Promise.resolve();
     const from = $('draw-deck').getBoundingClientRect();
-    const to = e.player === ME ? $('hand').getBoundingClientRect() : seatRect(e.player);
+    const to = isMe(e.player) ? $('hand').getBoundingClientRect() : seatRect(e.player);
     const w = 30, h = 43;
-    const anims = Array.from({ length: e.count }, (_, i) => {
+    return Promise.all(Array.from({ length: e.count }, (_, i) => {
       const el = cardEl(null);
       el.classList.add('fly');
       el.style.setProperty('--cw', w + 'px');
@@ -796,10 +1024,9 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       const dy = to.top + to.height / 2 - (from.top + from.height / 2);
       return el.animate([
         { transform: 'translate(0,0) scale(1)', opacity: 1 },
-        { transform: `translate(${dx}px, ${dy}px) scale(${e.player === ME ? 1.4 : .8})`, opacity: .3 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${isMe(e.player) ? 1.4 : .8})`, opacity: .3 },
       ], { duration: 380, delay: i * 80, easing: 'ease-in-out', fill: 'forwards' }).finished.then(() => el.remove(), () => el.remove());
-    });
-    return Promise.all(anims);
+    }));
   }
 
   function burn() {
@@ -811,9 +1038,9 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 
   function sweep(e, before) {
     if (reduceMotion) return Promise.resolve();
-    const to = e.player === ME ? $('hand').getBoundingClientRect() : seatRect(e.player);
+    const to = isMe(e.player) ? $('hand').getBoundingClientRect() : seatRect(e.player);
     const from = before.pile;
-    const anims = e.cards.slice(-5).map((card, i) => {
+    return Promise.all(e.cards.slice(-5).map((card, i) => {
       const el = cardEl(card);
       el.classList.add('fly');
       el.style.setProperty('--cw', '50px');
@@ -826,14 +1053,14 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
         { transform: 'translate(0,0) scale(1)', opacity: 1 },
         { transform: `translate(${dx}px, ${dy}px) scale(.6)`, opacity: .2 },
       ], { duration: 460, delay: i * 50, easing: 'ease-in', fill: 'forwards' }).finished.then(() => el.remove(), () => el.remove());
-    });
-    return Promise.all(anims);
+    }));
   }
 
+  // ---------- end ----------
   function showEnd() {
-    const over = state.phase === 'finished';
-    const myPlace = state.finishOrder.indexOf(ME) + 1;
-    if (over && state.loser === ME) {
+    const over = view.phase === 'finished';
+    const myPlace = view.finishOrder.indexOf(me) + 1;
+    if (over && view.loser === me) {
       $('end-title').textContent = 'Вы проиграли';
       $('end-text').textContent = 'Вы остались последним с картами на руках.';
     } else if (myPlace === 1) {
@@ -841,60 +1068,98 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       $('end-text').textContent = 'Вы первым избавились от всех карт.';
     } else {
       $('end-title').textContent = `${myPlace}-е место`;
-      $('end-text').textContent = over ? 'Партия окончена.' : 'Вы избавились от всех карт. Боты доигрывают.';
+      $('end-text').textContent = over ? 'Партия окончена.' : 'Вы избавились от всех карт. Остальные доигрывают.';
     }
     const list = $('places'); list.innerHTML = '';
-    const rows = [...state.finishOrder];
-    if (over && state.loser !== null) rows.push(state.loser);
+    const rows = [...view.finishOrder];
+    if (over && view.loser !== null) rows.push(view.loser);
     rows.forEach((id, i) => {
       const li = document.createElement('li');
-      const last = over && id === state.loser;
-      li.className = (id === ME ? 'me' : '') + (last ? ' last' : '');
-      li.innerHTML = `<span>${last ? 'Последний' : `${i + 1}-е место`}</span><b>${name(id)}</b>`;
-      list.appendChild(li);
+      const last = over && id === view.loser;
+      li.className = (id === me ? 'me' : '') + (last ? ' last' : '');
+      const a = document.createElement('span'); a.textContent = last ? 'Последний' : `${i + 1}-е место`;
+      const b = document.createElement('b'); b.textContent = name(id);
+      li.append(a, b); list.appendChild(li);
     });
+    const guest = mode === 'online' && me !== room.host;
+    $('end-new').hidden = over && guest;
     $('end-watch').hidden = over;
-    $('end-btns').style.gridTemplateColumns = over ? '1fr' : '';
+    if (over && guest) $('end-text').textContent += ' Новую партию начнёт создатель комнаты.';
+    $('end-btns').style.gridTemplateColumns = (over || $('end-new').hidden) ? '1fr' : '';
     $('end-sheet').hidden = false;
   }
 
-  // ---------- new game sheet ----------
-  let pickedCount = playerCount;
-  function openNew(first = false) {
-    pickedCount = playerCount;
-    $('new-cancel').hidden = first;
-    $('new-sheet').querySelector('.two-btns').style.gridTemplateColumns = first ? '1fr' : '';
-    const root = $('counts'); root.innerHTML = '';
+  // ---------- menu ----------
+  function renderCounts(root, value, min, onPick) {
+    root.innerHTML = '';
     for (let n = 2; n <= 6; n++) {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = n;
-      b.setAttribute('aria-pressed', String(n === pickedCount));
-      b.onclick = () => { pickedCount = n; root.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); };
+      b.disabled = n < min;
+      b.setAttribute('aria-pressed', String(n === value));
+      b.onclick = () => { onPick(n); root.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); };
       root.appendChild(b);
     }
+  }
+
+  let pickedCount = 6;
+  function openNew(first = false) {
+    pickedCount = localCount;
+    renderCounts($('counts'), pickedCount, 2, (n) => { pickedCount = n; });
+    $('online-menu').hidden = !ONLINE;
+    $('menu-error').textContent = '';
+    $('name-input').value = store.get(NAME_STORE) || '';
+    const hashCode = (location.hash || '').slice(1).toUpperCase();
+    if (/^[A-Z]{4}$/.test(hashCode) && !$('code-input').value) $('code-input').value = hashCode;
+    $('new-cancel').hidden = first;
+    $('new-btns').style.gridTemplateColumns = first ? '1fr' : '';
     $('new-sheet').hidden = false;
   }
 
   // ---------- wiring ----------
   $('play-btn').onclick = onPlay;
-  $('take-btn').onclick = () => { if (!busy) act({ type: 'takePile', player: ME }); };
-  $('new-btn').onclick = () => openNew();
+  $('take-btn').onclick = () => act({ type: 'takePile', player: me });
+  $('new-btn').onclick = () => {
+    if (mode === 'online' && room && (!view || view.phase !== 'playing') && !$('lobby-sheet').hidden) return;
+    openNew(!view);
+  };
   $('new-cancel').onclick = () => { $('new-sheet').hidden = true; };
-  $('new-start').onclick = () => { $('new-sheet').hidden = true; clearTimeout(botTimer); botTimer = null; busy = false; newGame(pickedCount); };
-  $('end-new').onclick = () => { $('end-sheet').hidden = true; openNew(); };
+  $('new-start').onclick = () => { $('new-sheet').hidden = true; newLocalGame(pickedCount); };
+  $('create-btn').onclick = createRoom;
+  $('join-btn').onclick = joinRoom;
+  $('code-input').onkeydown = (e) => { if (e.key === 'Enter') joinRoom(); };
+  $('lobby-start').onclick = () => { $('lobby-error').textContent = ''; send({ t: 'start', players: lobbyCount }); };
+  $('lobby-leave').onclick = () => { leaveRoom(); mode = null; view = null; seatSig = ''; openNew(true); };
+  $('copy-btn').onclick = () => {
+    const text = shareLink();
+    const done = () => { $('copy-btn').textContent = 'Скопировано'; setTimeout(() => ($('copy-btn').textContent = 'Копировать'), 1500); };
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents($('lobby-link')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  };
+  $('end-new').onclick = () => {
+    $('end-sheet').hidden = true;
+    if (mode === 'online') send({ t: 'start', players: view.playerCount });
+    else openNew();
+  };
   $('end-watch').onclick = () => { $('end-sheet').hidden = true; };
   $('help-btn').onclick = () => { $('help-sheet').hidden = false; };
   $('help-close').onclick = () => { $('help-sheet').hidden = true; };
   $('joker-cancel').onclick = () => { $('joker-sheet').hidden = true; };
 
-  if (load()) {
-    buildSeats();
-    statusHtml = 'Партия продолжается.';
+  // ---------- boot ----------
+  const savedRoom = ONLINE ? store.get(ONLINE_STORE) : null;
+  const hashCode = (location.hash || '').slice(1).toUpperCase();
+  if (savedRoom && (!/^[A-Z]{4}$/.test(hashCode) || hashCode === savedRoom.code)) {
+    // Back in the same room after a reload: reclaim the seat.
+    mode = 'online';
+    connect(() => send({ t: 'join', code: savedRoom.code, token: savedRoom.token }));
+  } else if (ONLINE && /^[A-Z]{4}$/.test(hashCode)) {
+    openNew(true);
+  } else if (loadLocal()) {
     render();
-    if (state.phase === 'finished') showEnd();
-    else if (state.pendingReveal && state.activePlayer === ME) openJoker('reveal');
+    if (view.phase === 'finished') showEnd();
+    else if (view.pendingReveal && view.activePlayer === me) openJoker('reveal');
     else maybeBot();
   } else {
-    // First visit: show the short rules before dealing.
     openNew(true);
   }
 })();

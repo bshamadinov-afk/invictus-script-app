@@ -1,0 +1,11 @@
+# Render.com blueprint for the FART online game server (fart/ folder).
+services:
+  - type: web
+    name: fart-card-game
+    runtime: node
+    plan: free
+    rootDir: fart
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
