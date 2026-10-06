@@ -9,7 +9,11 @@ drive the web preview now and run on a server for online play later.
 npm install
 npm test          # 43 tests: rules, redaction, 200 seeded bot-vs-bot games
 npm run typecheck
+npm run build:web # builds web/index.html: playable page (you vs bot)
 ```
+
+Open `web/index.html` in a browser to play. It is a single self-contained
+file, so it can be deployed as-is (e.g. Vercel with `fart/web` as the root).
 
 ## Layout
 
@@ -52,7 +56,7 @@ npm run typecheck
 
 ## Not done yet
 
-- iOS (Swift) port of the engine, web preview UI and animations, online rooms
-  and server sync (handoff priorities 5 and 7).
+- iOS (Swift) port of the engine, online rooms and server sync (handoff
+  priority 7). The web page in `web/` is a first playable preview.
 - Product-owner sign-off on the 7 rule and the other items in
   `docs/OPEN_QUESTIONS.md`.
