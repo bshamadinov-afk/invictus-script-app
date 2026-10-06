@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Rubik:wght@400;500;700;800&display=swap">
 <style>
-/* Layout: one phone-height table, opponent on top, pile in the middle, you at the bottom with the hand docked above the action bar. Single dark "card table" look. */
+/* Layout: one phone-height table. Bots sit in a compact grid on top, the pile in the middle, you at the bottom with the hand docked above the action bar. Single dark "card table" look. */
 :root {
   --table: #13222a;
   --table-2: #1a2e37;
@@ -30,9 +30,9 @@
   --display: "Rubik Mono One", "Arial Black", system-ui, sans-serif;
   --body: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
   --cw: clamp(42px, 12.6vw, 58px);
-  --ch: calc(var(--cw) * 1.42);
   color-scheme: dark;
 }
+* { --ch: calc(var(--cw) * 1.42); --off: calc(var(--cw) * .14); }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
@@ -48,19 +48,19 @@ body {
   height: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding-inline: 16px;
-  padding-block: 8px;
+  padding-inline: 12px;
+  padding-block: 6px;
   box-sizing: border-box;
   display: grid;
   grid-template-rows: auto auto 1fr auto auto auto;
-  gap: 8px;
+  gap: 6px;
 }
 button { font-family: var(--body); }
 button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* top bar */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.logo { font-family: var(--display); font-size: 20px; letter-spacing: 0.04em; color: var(--accent); }
+.logo { font-family: var(--display); font-size: 19px; letter-spacing: 0.04em; color: var(--accent); }
 .meta { display: flex; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .meta b { color: var(--text); font-weight: 700; }
 .icon-btn {
@@ -69,52 +69,56 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 }
 
 /* seats */
-.seat { display: grid; gap: 6px; padding: 8px 10px; border-radius: 14px; border: 1px solid transparent; transition: border-color .2s, background .2s; }
-.seat.turn { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
-.seat-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--muted); }
-.seat-head .name { font-weight: 700; color: var(--text); font-size: 13px; letter-spacing: .02em; }
-.seat-head .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
-.row { display: flex; align-items: center; gap: 10px; justify-content: center; min-height: calc(var(--ch) * 0.62); }
-.opp-hand { display: flex; justify-content: center; min-height: calc(var(--ch) * 0.62); align-items: center; }
-.opp-hand .card { width: calc(var(--cw) * .62); height: calc(var(--ch) * .62); margin-left: calc(var(--cw) * -0.38); }
-.opp-hand .card:first-child { margin-left: 0; }
-.count { margin-left: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.seat { display: grid; gap: 4px; padding: 6px 8px; border-radius: 12px; border: 1px solid transparent; transition: border-color .2s, background .2s; min-width: 0; }
+.seat.turn { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.seat.out { opacity: .55; }
+.seat-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 12px; color: var(--muted); }
+.seat-head .name { font-weight: 700; color: var(--text); font-size: 13px; letter-spacing: .02em; white-space: nowrap; }
+.seat-head .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); white-space: nowrap; }
+.seat-head .place { color: var(--good); }
+
+.bots { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 4px; }
+.bots .seat { --cw: clamp(22px, 6.4vw, 30px); }
+.bots.solo .seat { --cw: clamp(38px, 11vw, 50px); }
+.bot-hand { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bot-hand .card { --cw: 12px; border-width: 1.5px; border-radius: 3px; }
+.bot-hand .card::after { content: none; }
+.bot-hand b { color: var(--text); font-weight: 700; }
 
 /* table stacks: face-up card sits on top of its face-down card */
-.stacks { display: flex; justify-content: center; gap: 14px; }
-.slot { position: relative; width: var(--cw); height: calc(var(--ch) + 8px); border-radius: 8px; }
+.stacks { display: flex; justify-content: center; gap: calc(var(--cw) * .22); }
+.slot { position: relative; width: var(--cw); height: calc(var(--ch) + var(--off)); border-radius: calc(var(--cw) * .14); }
 .slot .card { position: absolute; left: 0; }
 .slot .card.down { top: 0; }
-.slot .card.up { top: 8px; transform: rotate(-3deg); }
+.slot .card.up { top: var(--off); transform: rotate(-3deg); }
 .slot.empty::after {
-  content: ""; position: absolute; inset: 0 0 8px; border: 1.5px dashed var(--line); border-radius: 8px;
+  content: ""; position: absolute; inset: 0 0 var(--off); border: 1.5px dashed var(--line); border-radius: calc(var(--cw) * .14);
 }
 .slot.blind { cursor: pointer; }
 .slot.blind .card.down { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 3px var(--accent), 0 0 18px color-mix(in srgb, var(--accent) 60%, transparent); } }
 
-/* cards */
+/* cards: every size derives from --cw, so a seat can shrink its cards by setting --cw */
 .card {
-  width: var(--cw); height: var(--ch); border-radius: 8px; box-sizing: border-box;
+  width: var(--cw); height: var(--ch); border-radius: calc(var(--cw) * .14); box-sizing: border-box;
   background: var(--card); color: var(--ink);
-  box-shadow: 0 1px 0 rgba(0,0,0,.25), 0 4px 10px rgba(0,0,0,.28);
+  box-shadow: 0 1px 0 rgba(0,0,0,.25), 0 3px 8px rgba(0,0,0,.28);
   position: relative; flex: 0 0 auto;
   font-family: var(--body); font-weight: 800;
   transition: transform .16s ease, box-shadow .16s ease;
 }
 .card.red { color: var(--red); }
-.card .r { position: absolute; top: 4px; left: 5px; font-size: calc(var(--cw) * .32); line-height: 1; letter-spacing: -0.03em; }
+.card .r { position: absolute; top: calc(var(--cw) * .07); left: calc(var(--cw) * .09); font-size: calc(var(--cw) * .32); line-height: 1; letter-spacing: -0.03em; }
 .card .s { position: absolute; inset: 0; display: grid; place-items: center; padding-top: 18%; font-size: calc(var(--cw) * .5); line-height: 1; }
-.card.joker .r { font-size: calc(var(--cw) * .2); letter-spacing: .02em; top: 5px; }
-.card.joker .s { color: var(--accent); text-shadow: 0 0 0 var(--ink); -webkit-text-stroke: 1px var(--accent-ink); }
+.card.joker .r { font-size: calc(var(--cw) * .2); letter-spacing: .02em; }
+.card.joker .s { color: var(--accent); -webkit-text-stroke: 1px var(--accent-ink); }
 .card .as {
   position: absolute; right: -6px; bottom: -6px; background: var(--accent); color: var(--accent-ink);
   border-radius: 999px; font-size: 11px; padding: 2px 6px; font-weight: 800; box-shadow: 0 2px 4px rgba(0,0,0,.3);
 }
 .card.back {
-  background:
-    repeating-linear-gradient(45deg, var(--back-1) 0 5px, var(--back-2) 5px 10px);
-  border: 3px solid var(--card);
+  background: repeating-linear-gradient(45deg, var(--back-1) 0 5px, var(--back-2) 5px 10px);
+  border: calc(var(--cw) * .05 + 1px) solid var(--card);
 }
 .card.back::after {
   content: "F"; position: absolute; inset: 0; display: grid; place-items: center;
@@ -126,16 +130,14 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 .card.hide { visibility: hidden; }
 
 /* center */
-.center { display: grid; place-items: center; align-content: center; gap: 10px; min-height: 0; }
+.center { display: grid; place-items: center; align-content: center; gap: 8px; min-height: 0; }
 .pile {
-  position: relative; width: calc(var(--cw) * 2.6); height: calc(var(--ch) * 1.15);
+  position: relative; width: calc(var(--cw) * 2.6); height: calc(var(--ch) * 1.12);
   display: grid; place-items: center;
 }
-.pile .card { position: absolute; width: calc(var(--cw) * 1.12); height: calc(var(--ch) * 1.12); }
-.pile .card .r { font-size: calc(var(--cw) * .36); }
-.pile .card .s { font-size: calc(var(--cw) * .6); }
+.pile .card { position: absolute; --cw: clamp(46px, 13.5vw, 64px); }
 .pile-empty {
-  width: calc(var(--cw) * 1.12); height: calc(var(--ch) * 1.12); border-radius: 10px;
+  width: calc(var(--cw) * 1.1); height: calc(var(--ch) * 1.1); border-radius: 10px;
   border: 1.5px dashed var(--line); display: grid; place-items: center; font-size: 11px; color: var(--muted);
   text-transform: uppercase; letter-spacing: .08em;
 }
@@ -149,14 +151,14 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 @keyframes burn { 0% { opacity: 0; transform: scale(.6); } 30% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1.4); } }
 .need {
   display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 8%, transparent); font-size: 13px; font-weight: 500;
+  background: color-mix(in srgb, var(--text) 8%, transparent); font-size: 13px; font-weight: 500; text-align: center;
 }
 .need b { font-family: var(--display); font-size: 15px; color: var(--accent); font-weight: 400; }
 .status { min-height: 2.6em; text-align: center; font-size: 13px; line-height: 1.3; color: var(--muted); text-wrap: balance; }
 .status strong { color: var(--text); font-weight: 600; }
 
 /* hand */
-.hand-wrap { overflow-x: auto; overflow-y: visible; scrollbar-width: none; padding-top: 16px; margin-top: -10px; }
+.hand-wrap { overflow-x: auto; overflow-y: visible; scrollbar-width: none; padding-top: 16px; margin-top: -12px; }
 .hand-wrap::-webkit-scrollbar { display: none; }
 .hand { display: flex; gap: 6px; justify-content: center; min-width: min-content; padding-inline: 2px; padding-bottom: 4px; }
 .hand.tight .card + .card { margin-left: calc(var(--cw) * -0.42); }
@@ -165,7 +167,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 /* actions */
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 4px; }
 .btn {
-  border: 0; border-radius: 14px; padding: 14px 10px; font-size: 16px; font-weight: 700; cursor: pointer;
+  border: 0; border-radius: 14px; padding: 13px 10px; font-size: 16px; font-weight: 700; cursor: pointer;
   background: var(--accent); color: var(--accent-ink); transition: transform .1s, opacity .2s;
 }
 .btn:active { transform: scale(.98); }
@@ -177,29 +179,40 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 .sheet {
   background: var(--table-2); border-top: 1px solid var(--line); border-radius: 20px 20px 0 0;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); max-width: 480px; width: 100%; margin: 0 auto; box-sizing: border-box;
-  max-height: 82vh; overflow-y: auto;
+  max-height: 82vh; overflow-y: auto; display: grid; gap: 10px;
 }
-.sheet h2 { font-family: var(--display); font-weight: 400; font-size: 17px; margin: 0 0 4px; color: var(--accent); text-wrap: balance; }
-.sheet p { margin: 0 0 12px; color: var(--muted); font-size: 14px; line-height: 1.45; }
-.ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+.sheet h2 { font-family: var(--display); font-weight: 400; font-size: 17px; margin: 0; color: var(--accent); text-wrap: balance; }
+.sheet p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .ranks button {
   background: var(--card); color: var(--ink); border: 0; border-radius: 10px; padding: 12px 0;
-  font-weight: 800; font-size: 17px; cursor: pointer; position: relative;
+  font-weight: 800; font-size: 17px; cursor: pointer;
 }
 .ranks button small { display: block; font-size: 10px; font-weight: 600; color: var(--red); margin-top: 2px; }
 .ranks button:disabled { opacity: .25; cursor: default; }
-.rules { font-size: 14px; line-height: 1.5; color: var(--text); padding-left: 18px; margin: 0 0 14px; }
+.counts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.counts button {
+  background: transparent; color: var(--text); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 0;
+  font-family: var(--display); font-size: 18px; cursor: pointer;
+}
+.counts button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.rules { font-size: 14px; line-height: 1.5; color: var(--text); padding-left: 18px; margin: 0; }
 .rules li { margin-bottom: 6px; }
 .rules b { color: var(--accent); }
-.end-title { font-family: var(--display); font-size: 26px; text-align: center; margin: 6px 0 8px; color: var(--accent); }
+.end-title { font-family: var(--display); font-size: 24px; text-align: center; margin: 4px 0 0; color: var(--accent); }
+.places { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 15px; }
+.places li { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.places li.me { outline: 1.5px solid var(--accent); }
+.places li.last { color: var(--burn); }
+.two-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* flying clone */
 .fly { position: fixed; z-index: 30; pointer-events: none; margin: 0 !important; }
 
-@media (max-height: 700px) {
-  :root { --cw: clamp(40px, 11.5vw, 52px); }
+@media (max-height: 720px) {
+  :root { --cw: clamp(38px, 11vw, 50px); }
+  .bots .seat { --cw: clamp(20px, 5.6vw, 26px); }
   .app { gap: 4px; }
-  .seat { padding: 5px 8px; gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .slot.blind .card.down { animation: none; box-shadow: 0 0 0 3px var(--accent); }
@@ -217,11 +230,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     </div>
   </div>
 
-  <section class="seat" id="opp-seat">
-    <div class="seat-head"><span class="name">Бот</span><span class="tag" id="opp-tag"></span></div>
-    <div class="opp-hand" id="opp-hand"></div>
-    <div class="stacks" id="opp-stacks"></div>
-  </section>
+  <div class="bots" id="bots"></div>
 
   <section class="center">
     <div class="pile" id="pile"></div>
@@ -229,7 +238,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     <div class="status" id="status"></div>
   </section>
 
-  <section class="seat" id="me-seat">
+  <section class="seat" id="seat-0">
     <div class="seat-head"><span class="name">Вы</span><span class="tag" id="me-tag"></span></div>
     <div class="stacks" id="me-stacks"></div>
   </section>
@@ -248,9 +257,21 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 <div class="sheet-bg" id="joker-sheet" hidden>
   <div class="sheet" role="dialog" aria-labelledby="joker-title">
     <h2 id="joker-title">Кем будет джокер?</h2>
-    <p id="joker-hint">Джокер становится любой картой и получает её силу: 2 — ход ещё раз, 7 — перевод, 10 — сжечь стопку.</p>
+    <p id="joker-hint"></p>
     <div class="ranks" id="joker-ranks"></div>
-    <button class="btn ghost" id="joker-cancel" type="button" style="width:100%">Отмена</button>
+    <button class="btn ghost" id="joker-cancel" type="button">Отмена</button>
+  </div>
+</div>
+
+<div class="sheet-bg" id="new-sheet" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="new-title">
+    <h2 id="new-title">Новая партия</h2>
+    <p>Сколько игроков за столом, считая вас? Остальные — боты.</p>
+    <div class="counts" id="counts"></div>
+    <div class="two-btns">
+      <button class="btn ghost" id="new-cancel" type="button">Отмена</button>
+      <button class="btn" id="new-start" type="button">Начать</button>
+    </div>
   </div>
 </div>
 
@@ -259,16 +280,17 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     <h2 id="help-title">Как играть</h2>
     <ul class="rules">
       <li>Кладите карту <b>того же достоинства или старше</b>. Можно сразу 2–4 одинаковых.</li>
+      <li><b>4 одинаковые</b> за один ход работают как двойка: закройте их ещё одной картой.</li>
       <li>Пока есть колода, после хода рука добирается до 3 карт.</li>
       <li><b>2</b> кладётся на что угодно, и вы сразу ходите ещё раз любой картой.</li>
-      <li><b>10</b> сжигает стопку, и вы начинаете новую.</li>
-      <li><b>7</b> переводит ход: соперник бьёт карту, которая лежала до семёрки.</li>
+      <li><b>10</b> сжигает стопку, и следующий игрок начинает новую.</li>
+      <li><b>7</b> переводит ход: следующий бьёт карту, которая лежала до семёрки.</li>
       <li><b>Джокер</b> — любая карта, в том числе 2, 7 или 10 с их силой.</li>
-      <li>Нечем бить — забирайте стопку в руку.</li>
+      <li>Нечем бить — забирайте стопку в руку, ход переходит дальше.</li>
       <li>Рука кончилась и колоды нет — играете <b>открытыми</b> картами, потом <b>закрытыми вслепую</b>: нажмите на закрытую карту и надейтесь на удачу.</li>
-      <li>Кто первым избавился от всех карт, тот выиграл.</li>
+      <li>Избавились от всех карт — вы вышли. Кто остался последним с картами, тот проиграл.</li>
     </ul>
-    <button class="btn" id="help-close" type="button" style="width:100%">Понятно</button>
+    <button class="btn" id="help-close" type="button">Понятно</button>
   </div>
 </div>
 
@@ -276,51 +298,63 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
   <div class="sheet" role="dialog" aria-labelledby="end-title">
     <div class="end-title" id="end-title"></div>
     <p id="end-text" style="text-align:center"></p>
-    <button class="btn" id="end-new" type="button" style="width:100%">Ещё партию</button>
+    <ol class="places" id="places"></ol>
+    <div class="two-btns" id="end-btns">
+      <button class="btn ghost" id="end-watch" type="button">Досмотреть</button>
+      <button class="btn" id="end-new" type="button">Ещё партию</button>
+    </div>
   </div>
 </div>
 
 <script>
-"use strict";var FART=(()=>{var x=Object.defineProperty;var H=Object.getOwnPropertyDescriptor;var $=Object.getOwnPropertyNames;var V=Object.prototype.hasOwnProperty;var j=(e,n)=>{for(var r in n)x(e,r,{get:n[r],enumerable:!0})},z=(e,n,r,t)=>{if(n&&typeof n=="object"||typeof n=="function")for(let a of $(n))!V.call(e,a)&&a!==r&&x(e,a,{get:()=>n[a],enumerable:!(t=H(n,a))||t.enumerable});return e};var Y=e=>z(x({},"__esModule",{value:!0}),e);var pe={};j(pe,{DECK_SIZE:()=>Z,DEFAULT_RULES:()=>y,JOKER_COUNT:()=>A,RANKS:()=>m,SUITS:()=>v,activeZone:()=>P,applyAction:()=>ee,cardLabel:()=>Q,cardsRemaining:()=>T,chooseBotAction:()=>ue,createGame:()=>W,createRng:()=>w,createShuffledDeck:()=>E,getPlayerView:()=>le,hasLegalPlay:()=>J,isJoker:()=>p,isRank:()=>C,isRankPlayable:()=>k,opponentOf:()=>g,playContext:()=>L,playOptions:()=>b,rankLabel:()=>X,resolutionFor:()=>h,resolveNormal:()=>_,resolveSevenTransfer:()=>U,resolveTen:()=>q,resolveTwo:()=>O,shuffle:()=>D});function w(e){let n=e>>>0;return()=>{n=n+1831565813>>>0;let r=n;return r=Math.imul(r^r>>>15,r|1),r^=r+Math.imul(r^r>>>7,r|61),((r^r>>>14)>>>0)/4294967296}}function D(e,n){let r=e.slice();for(let t=r.length-1;t>0;t--){let a=Math.floor(n()*(t+1));[r[t],r[a]]=[r[a],r[t]]}return r}var v=["spades","hearts","diamonds","clubs"],m=[2,3,4,5,6,7,8,9,10,11,12,13,14],A=4,Z=v.length*m.length+A;function p(e){return e.rank==="joker"}function C(e){return typeof e=="number"&&Number.isInteger(e)&&e>=2&&e<=14}var N={2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K",14:"A"},B={spades:"\u2660",hearts:"\u2665",diamonds:"\u2666",clubs:"\u2663"};function X(e){return N[e]}function Q(e){return p(e)?"\u{1F0CF}":`${N[e.rank]}${B[e.suit]}`}function E(e){let n=[];for(let r of v)for(let t of m)n.push({rank:t,suit:r});for(let r=0;r<A;r++)n.push({rank:"joker",suit:null});return D(n,e).map((r,t)=>({...r,id:`c${String(t).padStart(2,"0")}`}))}var _=({playedRank:e})=>({requiredRank:e,nextPlayer:"opponent",burn:!1,effect:"none"}),O=()=>({requiredRank:null,nextPlayer:"same",burn:!1,effect:"continue"}),q=()=>({requiredRank:null,nextPlayer:"same",burn:!0,effect:"burn"}),U=({requiredRankBefore:e})=>({requiredRank:e,nextPlayer:"opponent",burn:!1,effect:"transfer"}),y={handSize:3,tableCards:3,maxCardsPerMove:4,alwaysPlayableRanks:[2,7,10],specials:{2:O,7:U,10:q},allowJokersInSets:!0};function h(e,n){return(e.specials[n.playedRank]??_)(n)}function k(e,n,r,t){return r||n===null||t.alwaysPlayableRanks.includes(e)?!0:e>=n}function g(e){return e===0?1:0}function W({seed:e,startingPlayer:n,rules:r=y}){let t=w(e),a=E(t),o=[{id:0,hand:[],faceUp:[],faceDown:[]},{id:1,hand:[],faceUp:[],faceDown:[]}],i=(u,l)=>{for(let d of o)d[u].push(...a.splice(0,l))};return i("faceDown",r.tableCards),i("faceUp",r.tableCards),i("hand",r.handSize),{seed:e,players:o,drawDeck:a,centerPile:[],burned:[],activePlayer:n??(t()<.5?0:1),requiredRank:null,pendingContinuation:null,pendingReveal:null,phase:"playing",winner:null,moveHistory:[],turn:0}}function P(e){return e.hand.length>0?"hand":e.faceUp.length>0?"faceUp":"faceDown"}function T(e){return e.hand.length+e.faceUp.length+e.faceDown.length}function b(e,n,r=y){let t=e.filter(p),a=[];for(let o of m){if(!k(o,n.requiredRank,n.pendingContinuation,r))continue;let i=e.filter(f=>f.rank===o),u=i.length===0||r.allowJokersInSets?t:[],l=[...i,...u],d=Math.min(r.maxCardsPerMove,l.length);for(let f=1;f<=d;f++){let s=l.slice(0,f);a.push({cardIds:s.map(S=>S.id),effectiveRank:o,...s.some(p)?{jokerAs:o}:{}})}}return a}function J(e,n,r=y){let t=e.players[n],a=P(t);return a==="faceDown"?t.faceDown.length>0:b(t[a],L(e),r).length>0}function L(e){return{requiredRank:e.requiredRank,pendingContinuation:e.pendingContinuation!==null}}function ee(e,n,r=y){if(e.phase==="finished")return c("GAME_OVER","The game is over.");if(n.player!==e.activePlayer)return c("NOT_YOUR_TURN",`It is player ${e.activePlayer}'s turn.`);if(e.pendingReveal&&n.type!=="chooseJokerIdentity")return c("AWAITING_JOKER_IDENTITY","Choose what the revealed Joker is first.");let t=structuredClone(e),a=[],o=ne(t,n,r,a);return o||(t.moveHistory.push(...a),t.turn+=1,{ok:!0,state:t,events:a})}function ne(e,n,r,t){switch(n.type){case"playCards":return re(e,n.player,n.cardIds,n.jokerAs,r,t);case"takePile":return te(e,n.player,r,t);case"revealFaceDown":return ae(e,n.player,n.index,r,t);case"chooseJokerIdentity":return oe(e,n.player,n.rank,r,t)}}function re(e,n,r,t,a,o){let i=e.players[n],u=P(i);if(u==="faceDown")return c("WRONG_ZONE","Only face-down cards remain: reveal one with revealFaceDown.");if(r.length===0||new Set(r).size!==r.length)return c("INVALID_CARDS","Select one or more distinct cards.");if(r.length>a.maxCardsPerMove)return c("TOO_MANY_CARDS",`At most ${a.maxCardsPerMove} cards per move.`);let l=[];for(let R of r){let I=i[u].find(F=>F.id===R);if(!I)return c("INVALID_CARDS",`Card ${R} is not playable from your ${u}.`);l.push(I)}let d=new Set(l.filter(R=>!p(R)).map(R=>R.rank));if(d.size>1)return c("MIXED_RANKS","All cards in a move must share one rank.");let f=l.some(p),s;if(d.size===1){if(s=[...d][0],f&&!a.allowJokersInSets)return c("MIXED_RANKS","Jokers cannot be combined with natural cards.");if(t!==void 0&&t!==s)return c("MIXED_RANKS","A Joker in a set must be declared as the set\u2019s rank.")}else{if(!C(t))return c("JOKER_IDENTITY_REQUIRED","Declare which rank the Joker is.");s=t}if(!k(s,e.requiredRank,e.pendingContinuation!==null,a))return c("ILLEGAL_RANK",`A ${s} cannot be played on a required ${e.requiredRank}.`);let S=new Set(r);return i[u]=i[u].filter(R=>!S.has(R.id)),G(e,n,u,l,s,a,o),null}function te(e,n,r,t){return e.pendingContinuation?c("MUST_CONTINUE","You must play another card."):J(e,n,r)?c("HAS_LEGAL_MOVE","You can only take the pile when you have no legal move."):(M(e,n,[],"noLegalMove",t),null)}function ae(e,n,r,t,a){let o=e.players[n];if(P(o)!=="faceDown")return c("WRONG_ZONE","Face-down cards are played only after your hand and face-up cards are gone.");if(!Number.isInteger(r)||r<0||r>=o.faceDown.length)return c("INVALID_INDEX",`Pick a face-down card between 0 and ${o.faceDown.length-1}.`);let[i]=o.faceDown.splice(r,1);if(p(i))return a.push({type:"faceDownRevealed",player:n,card:i,playable:!0}),e.pendingReveal=i,null;let u=k(i.rank,e.requiredRank,e.pendingContinuation!==null,t);return a.push({type:"faceDownRevealed",player:n,card:i,playable:u}),u?G(e,n,"faceDown",[i],i.rank,t,a):M(e,n,[i],"blindFail",a),null}function oe(e,n,r,t,a){let o=e.pendingReveal;return o?C(r)?k(r,e.requiredRank,e.pendingContinuation!==null,t)?(e.pendingReveal=null,G(e,n,"faceDown",[o],r,t,a),null):c("ILLEGAL_RANK",`A Joker as ${r} cannot be played on a required ${e.requiredRank}.`):c("JOKER_IDENTITY_REQUIRED","Declare a rank from 2 to A."):c("NO_PENDING_JOKER","There is no revealed Joker waiting for an identity.")}function G(e,n,r,t,a,o,i){let u=t.map(d=>({card:d,effectiveRank:a,player:n})),l=h(o,{playedRank:a,requiredRankBefore:e.requiredRank,count:t.length});if(e.centerPile.push(...u),i.push({type:"cardsPlayed",player:n,from:r,cards:u,effect:l.effect}),l.burn){let d=e.centerPile.map(f=>f.card);e.burned.push(...d),e.centerPile=[],i.push({type:"pileBurned",player:n,count:d.length})}if(e.requiredRank=l.requiredRank,ie(e,n,o,i),T(e.players[n])===0){e.phase="finished",e.winner=n,e.pendingContinuation=null,i.push({type:"won",player:n});return}l.nextPlayer==="same"?e.pendingContinuation=l.burn?"burn":"two":(e.pendingContinuation=null,e.activePlayer=g(n),l.effect==="transfer"&&i.push({type:"turnTransferred",from:n,to:e.activePlayer,requiredRank:e.requiredRank}))}function M(e,n,r,t,a){let o=[...e.centerPile.map(i=>i.card),...r];e.players[n].hand.push(...o),e.centerPile=[],e.requiredRank=null,e.pendingContinuation=null,e.activePlayer=g(n),a.push({type:"pileTaken",player:n,cards:o,reason:t})}function ie(e,n,r,t){let a=e.players[n].hand,o=Math.min(r.handSize-a.length,e.drawDeck.length);o<=0||(a.push(...e.drawDeck.splice(0,o)),t.push({type:"cardsDrawn",player:n,count:o}))}function c(e,n){return{ok:!1,code:e,message:n}}function le(e,n){let r=e.players[n],t=e.players[g(n)],a={me:n,hand:r.hand,faceUp:r.faceUp,faceDownCount:r.faceDown.length,opponent:{handCount:t.hand.length,faceUp:t.faceUp,faceDownCount:t.faceDown.length},drawDeckCount:e.drawDeck.length,centerPile:e.centerPile,burnedCount:e.burned.length,activePlayer:e.activePlayer,requiredRank:e.requiredRank,pendingContinuation:e.pendingContinuation,pendingReveal:e.pendingReveal,phase:e.phase,winner:e.winner,moveHistory:e.moveHistory,turn:e.turn};return structuredClone(a)}function ue(e,n=Math.random,r=y){let t=e.me,a={requiredRank:e.requiredRank,pendingContinuation:e.pendingContinuation!==null};if(e.pendingReveal){let l=m.filter(d=>k(d,a.requiredRank,a.pendingContinuation,r));return{type:"chooseJokerIdentity",player:t,rank:de(l,r)}}let o=e.hand.length>0?e.hand:e.faceUp.length>0?e.faceUp:null;if(!o)return{type:"revealFaceDown",player:t,index:Math.floor(n()*e.faceDownCount)};let i=b(o,a,r);if(i.length===0)return{type:"takePile",player:t};let u=i.reduce((l,d)=>K(d,o,r)>K(l,o,r)?d:l);return{type:"playCards",player:t,cardIds:u.cardIds,...u.jokerAs!==void 0?{jokerAs:u.jokerAs}:{}}}function K(e,n,r){let t=e.cardIds.filter(o=>n.find(i=>i.id===o&&p(i))).length;if(t>0)return-1e3-t*100+(ce(e.effectiveRank,r)?50:0);let a=r.specials[e.effectiveRank]!==void 0;return-e.effectiveRank*10+e.cardIds.length*3-(a?200:0)}function ce(e,n){return h(n,{playedRank:e,requiredRankBefore:null,count:1}).burn}function de(e,n){return e.filter(t=>n.specials[t]===void 0)[0]??e[0]??2}return Y(pe);})();
+"use strict";var FART=(()=>{var S=Object.defineProperty;var j=Object.getOwnPropertyDescriptor;var Y=Object.getOwnPropertyNames;var Z=Object.prototype.hasOwnProperty;var B=(e,n)=>{for(var r in n)S(e,r,{get:n[r],enumerable:!0})},X=(e,n,r,t)=>{if(n&&typeof n=="object"||typeof n=="function")for(let a of Y(n))!Z.call(e,a)&&a!==r&&S(e,a,{get:()=>n[a],enumerable:!(t=j(n,a))||t.enumerable});return e};var Q=e=>X(S({},"__esModule",{value:!0}),e);var ye={};B(ye,{DECK_SIZE:()=>W,DEFAULT_RULES:()=>y,JOKER_COUNT:()=>v,MAX_PLAYERS:()=>G,MIN_PLAYERS:()=>O,RANKS:()=>k,SUITS:()=>D,activeZone:()=>P,applyAction:()=>ae,applyFourOfAKind:()=>J,cardLabel:()=>re,cardsRemaining:()=>K,chooseBotAction:()=>se,createGame:()=>te,createRng:()=>w,createShuffledDeck:()=>E,getPlayerView:()=>fe,hasLegalPlay:()=>F,isJoker:()=>s,isOut:()=>I,isRank:()=>g,isRankPlayable:()=>m,nextPlayer:()=>C,playContext:()=>$,playOptions:()=>b,rankLabel:()=>ne,resolutionFor:()=>h,resolveNormal:()=>U,resolveSevenTransfer:()=>M,resolveTen:()=>L,resolveTwo:()=>T,shuffle:()=>A});function w(e){let n=e>>>0;return()=>{n=n+1831565813>>>0;let r=n;return r=Math.imul(r^r>>>15,r|1),r^=r+Math.imul(r^r>>>7,r|61),((r^r>>>14)>>>0)/4294967296}}function A(e,n){let r=e.slice();for(let t=r.length-1;t>0;t--){let a=Math.floor(n()*(t+1));[r[t],r[a]]=[r[a],r[t]]}return r}var D=["spades","hearts","diamonds","clubs"],k=[2,3,4,5,6,7,8,9,10,11,12,13,14],v=4,W=D.length*k.length+v;function s(e){return e.rank==="joker"}function g(e){return typeof e=="number"&&Number.isInteger(e)&&e>=2&&e<=14}var q={2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K",14:"A"},ee={spades:"\u2660",hearts:"\u2665",diamonds:"\u2666",clubs:"\u2663"};function ne(e){return q[e]}function re(e){return s(e)?"\u{1F0CF}":`${q[e.rank]}${ee[e.suit]}`}function E(e){let n=[];for(let r of D)for(let t of k)n.push({rank:t,suit:r});for(let r=0;r<v;r++)n.push({rank:"joker",suit:null});return A(n,e).map((r,t)=>({...r,id:`c${String(t).padStart(2,"0")}`}))}var U=({playedRank:e})=>({requiredRank:e,nextPlayer:"next",burn:!1,effect:"none"}),T=()=>({requiredRank:null,nextPlayer:"same",continuation:"two",burn:!1,effect:"continue"}),L=()=>({requiredRank:null,nextPlayer:"next",burn:!0,effect:"burn"}),J=e=>({requiredRank:null,nextPlayer:"same",continuation:"four",burn:e.burn,effect:e.burn?"burn":"continue"}),M=({requiredRankBefore:e})=>({requiredRank:e,nextPlayer:"next",burn:!1,effect:"transfer"}),y={handSize:3,tableCards:3,maxCardsPerMove:4,fourOfAKindSize:4,alwaysPlayableRanks:[2,7,10],specials:{2:T,7:M,10:L},allowJokersInSets:!0};function h(e,n){let t=(e.specials[n.playedRank]??U)(n);return e.fourOfAKindSize!==null&&n.count>=e.fourOfAKindSize?J(t):t}function m(e,n,r,t){return r||n===null||t.alwaysPlayableRanks.includes(e)?!0:e>=n}var O=2,G=6;function I(e,n){return e.finishOrder.includes(n)}function C(e,n){let r=e.players.length;for(let t=1;t<=r;t++){let a=(n+t)%r;if(!I(e,a))return a}return n}function te({seed:e,playerCount:n=2,startingPlayer:r,rules:t=y}){if(!Number.isInteger(n)||n<O||n>G)throw new RangeError(`playerCount must be ${O}\u2013${G}`);let a=w(e),o=E(a),i=Array.from({length:n},(l,c)=>({id:c,hand:[],faceUp:[],faceDown:[]})),u=(l,c)=>{for(let f of i)f[l].push(...o.splice(0,c))};return u("faceDown",t.tableCards),u("faceUp",t.tableCards),u("hand",t.handSize),{seed:e,players:i,drawDeck:o,centerPile:[],burned:[],activePlayer:r??Math.floor(a()*n),requiredRank:null,pendingContinuation:null,pendingReveal:null,phase:"playing",finishOrder:[],winner:null,loser:null,moveHistory:[],turn:0}}function P(e){return e.hand.length>0?"hand":e.faceUp.length>0?"faceUp":"faceDown"}function K(e){return e.hand.length+e.faceUp.length+e.faceDown.length}function b(e,n,r=y){let t=e.filter(s),a=[];for(let o of k){if(!m(o,n.requiredRank,n.pendingContinuation,r))continue;let i=e.filter(f=>f.rank===o),u=i.length===0||r.allowJokersInSets?t:[],l=[...i,...u],c=Math.min(r.maxCardsPerMove,l.length);for(let f=1;f<=c;f++){let p=l.slice(0,f);a.push({cardIds:p.map(x=>x.id),effectiveRank:o,...p.some(s)?{jokerAs:o}:{}})}}return a}function F(e,n,r=y){let t=e.players[n],a=P(t);return a==="faceDown"?t.faceDown.length>0:b(t[a],$(e),r).length>0}function $(e){return{requiredRank:e.requiredRank,pendingContinuation:e.pendingContinuation!==null}}function ae(e,n,r=y){if(e.phase==="finished")return d("GAME_OVER","The game is over.");if(n.player!==e.activePlayer)return d("NOT_YOUR_TURN",`It is player ${e.activePlayer}'s turn.`);if(e.pendingReveal&&n.type!=="chooseJokerIdentity")return d("AWAITING_JOKER_IDENTITY","Choose what the revealed Joker is first.");let t=structuredClone(e),a=[],o=oe(t,n,r,a);return o||(t.moveHistory.push(...a),t.turn+=1,{ok:!0,state:t,events:a})}function oe(e,n,r,t){switch(n.type){case"playCards":return ie(e,n.player,n.cardIds,n.jokerAs,r,t);case"takePile":return le(e,n.player,r,t);case"revealFaceDown":return ue(e,n.player,n.index,r,t);case"chooseJokerIdentity":return ce(e,n.player,n.rank,r,t)}}function ie(e,n,r,t,a,o){let i=e.players[n],u=P(i);if(u==="faceDown")return d("WRONG_ZONE","Only face-down cards remain: reveal one with revealFaceDown.");if(r.length===0||new Set(r).size!==r.length)return d("INVALID_CARDS","Select one or more distinct cards.");if(r.length>a.maxCardsPerMove)return d("TOO_MANY_CARDS",`At most ${a.maxCardsPerMove} cards per move.`);let l=[];for(let R of r){let _=i[u].find(H=>H.id===R);if(!_)return d("INVALID_CARDS",`Card ${R} is not playable from your ${u}.`);l.push(_)}let c=new Set(l.filter(R=>!s(R)).map(R=>R.rank));if(c.size>1)return d("MIXED_RANKS","All cards in a move must share one rank.");let f=l.some(s),p;if(c.size===1){if(p=[...c][0],f&&!a.allowJokersInSets)return d("MIXED_RANKS","Jokers cannot be combined with natural cards.");if(t!==void 0&&t!==p)return d("MIXED_RANKS","A Joker in a set must be declared as the set\u2019s rank.")}else{if(!g(t))return d("JOKER_IDENTITY_REQUIRED","Declare which rank the Joker is.");p=t}if(!m(p,e.requiredRank,e.pendingContinuation!==null,a))return d("ILLEGAL_RANK",`A ${p} cannot be played on a required ${e.requiredRank}.`);let x=new Set(r);return i[u]=i[u].filter(R=>!x.has(R.id)),N(e,n,u,l,p,a,o),null}function le(e,n,r,t){return e.pendingContinuation?d("MUST_CONTINUE","You must play another card."):F(e,n,r)?d("HAS_LEGAL_MOVE","You can only take the pile when you have no legal move."):(z(e,n,[],"noLegalMove",t),null)}function ue(e,n,r,t,a){let o=e.players[n];if(P(o)!=="faceDown")return d("WRONG_ZONE","Face-down cards are played only after your hand and face-up cards are gone.");if(!Number.isInteger(r)||r<0||r>=o.faceDown.length)return d("INVALID_INDEX",`Pick a face-down card between 0 and ${o.faceDown.length-1}.`);let[i]=o.faceDown.splice(r,1);if(s(i))return a.push({type:"faceDownRevealed",player:n,card:i,playable:!0}),e.pendingReveal=i,null;let u=m(i.rank,e.requiredRank,e.pendingContinuation!==null,t);return a.push({type:"faceDownRevealed",player:n,card:i,playable:u}),u?N(e,n,"faceDown",[i],i.rank,t,a):z(e,n,[i],"blindFail",a),null}function ce(e,n,r,t,a){let o=e.pendingReveal;return o?g(r)?m(r,e.requiredRank,e.pendingContinuation!==null,t)?(e.pendingReveal=null,N(e,n,"faceDown",[o],r,t,a),null):d("ILLEGAL_RANK",`A Joker as ${r} cannot be played on a required ${e.requiredRank}.`):d("JOKER_IDENTITY_REQUIRED","Declare a rank from 2 to A."):d("NO_PENDING_JOKER","There is no revealed Joker waiting for an identity.")}function N(e,n,r,t,a,o,i){let u=t.map(c=>({card:c,effectiveRank:a,player:n})),l=h(o,{playedRank:a,requiredRankBefore:e.requiredRank,count:t.length});if(e.centerPile.push(...u),i.push({type:"cardsPlayed",player:n,from:r,cards:u,effect:l.effect}),l.burn){let c=e.centerPile.map(f=>f.card);e.burned.push(...c),e.centerPile=[],i.push({type:"pileBurned",player:n,count:c.length})}if(e.requiredRank=l.requiredRank,de(e,n,o,i),K(e.players[n])===0){e.pendingContinuation=null,e.finishOrder.push(n),e.winner===null&&(e.winner=n),i.push({type:"playerFinished",player:n,place:e.finishOrder.length});let c=e.players.filter(f=>!I(e,f.id));if(c.length<=1){e.phase="finished",e.loser=c[0]?.id??null,e.loser!==null&&i.push({type:"gameOver",loser:e.loser});return}e.activePlayer=C(e,n);return}l.nextPlayer==="same"?e.pendingContinuation=l.continuation??"two":(e.pendingContinuation=null,e.activePlayer=C(e,n),l.effect==="transfer"&&i.push({type:"turnTransferred",from:n,to:e.activePlayer,requiredRank:e.requiredRank}))}function z(e,n,r,t,a){let o=[...e.centerPile.map(i=>i.card),...r];e.players[n].hand.push(...o),e.centerPile=[],e.requiredRank=null,e.pendingContinuation=null,e.activePlayer=C(e,n),a.push({type:"pileTaken",player:n,cards:o,reason:t})}function de(e,n,r,t){let a=e.players[n].hand,o=Math.min(r.handSize-a.length,e.drawDeck.length);o<=0||(a.push(...e.drawDeck.splice(0,o)),t.push({type:"cardsDrawn",player:n,count:o}))}function d(e,n){return{ok:!1,code:e,message:n}}function fe(e,n){let r=e.players[n];if(!r)throw new RangeError(`No player ${n}`);let t=e.players.length,a=u=>{let l=e.finishOrder.indexOf(u);return l===-1?null:l+1},o=[];for(let u=1;u<t;u++){let l=e.players[(n+u)%t];o.push({id:l.id,handCount:l.hand.length,faceUp:l.faceUp,faceDownCount:l.faceDown.length,place:a(l.id)})}let i={me:n,playerCount:t,hand:r.hand,faceUp:r.faceUp,faceDownCount:r.faceDown.length,place:a(n),opponents:o,drawDeckCount:e.drawDeck.length,centerPile:e.centerPile,burnedCount:e.burned.length,activePlayer:e.activePlayer,requiredRank:e.requiredRank,pendingContinuation:e.pendingContinuation,pendingReveal:e.pendingReveal,phase:e.phase,finishOrder:e.finishOrder,winner:e.winner,loser:e.loser,moveHistory:e.moveHistory,turn:e.turn};return structuredClone(i)}function se(e,n=Math.random,r=y){let t=e.me,a={requiredRank:e.requiredRank,pendingContinuation:e.pendingContinuation!==null};if(e.pendingReveal){let l=k.filter(c=>m(c,a.requiredRank,a.pendingContinuation,r));return{type:"chooseJokerIdentity",player:t,rank:Re(l,r)}}let o=e.hand.length>0?e.hand:e.faceUp.length>0?e.faceUp:null;if(!o)return{type:"revealFaceDown",player:t,index:Math.floor(n()*e.faceDownCount)};let i=b(o,a,r);if(i.length===0)return{type:"takePile",player:t};let u=i.reduce((l,c)=>V(c,o,r)>V(l,o,r)?c:l);return{type:"playCards",player:t,cardIds:u.cardIds,...u.jokerAs!==void 0?{jokerAs:u.jokerAs}:{}}}function V(e,n,r){let t=e.cardIds.filter(o=>n.find(i=>i.id===o&&s(i))).length;if(t>0)return-1e3-t*100+(pe(e.effectiveRank,r)?50:0);let a=r.specials[e.effectiveRank]!==void 0;return-e.effectiveRank*10+e.cardIds.length*3-(a?200:0)}function pe(e,n){return h(n,{playedRank:e,requiredRankBefore:null,count:1}).burn}function Re(e,n){return e.filter(t=>n.specials[t]===void 0)[0]??e[0]??2}return Q(ye);})();
 
 </script>
 <script>
 (() => {
   const F = window.FART;
-  const ME = 0, BOT = 1;
+  const ME = 0;
   const SUIT = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
   const RANK = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
   const rl = (r) => RANK[r] || String(r);
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (id) => document.getElementById(id);
+  const name = (id) => id === ME ? 'Вы' : `Бот ${id}`;
+  const STORE = 'fart-game-v2';
 
   let state, seed, botRng;
+  let playerCount = 6;
   let selected = [];
   let busy = false;
   let jokerMode = null; // 'play' | 'reveal'
   let statusHtml = '';
+  let shownOutSheet = false;
 
   // ---------- persistence ----------
   function save() {
-    try { localStorage.setItem('fart-game-v1', JSON.stringify({ state, seed })); } catch (e) {}
+    try { localStorage.setItem(STORE, JSON.stringify({ state, seed, shownOutSheet })); } catch (e) {}
   }
   function load() {
     try {
-      const raw = localStorage.getItem('fart-game-v1');
-      if (!raw) return false;
-      const data = JSON.parse(raw);
-      if (!data || !data.state || !data.state.players) return false;
-      state = data.state; seed = data.seed; botRng = F.createRng(seed ^ 0x5bd1e995 ^ state.turn);
+      const data = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (!data || !data.state || !Array.isArray(data.state.players)) return false;
+      state = data.state; seed = data.seed; shownOutSheet = !!data.shownOutSheet;
+      playerCount = state.players.length;
+      botRng = F.createRng(seed ^ 0x5bd1e995 ^ state.turn);
       return true;
     } catch (e) { return false; }
   }
-  function newGame() {
+  function newGame(n = playerCount) {
+    playerCount = n;
     seed = Math.floor(Math.random() * 2 ** 31);
-    state = F.createGame({ seed });
+    state = F.createGame({ seed, playerCount: n });
     botRng = F.createRng(seed ^ 0x5bd1e995);
-    selected = [];
-    statusHtml = state.activePlayer === ME ? '<strong>Вы ходите первым.</strong> Выберите карты и нажмите «Сходить».' : '<strong>Бот ходит первым.</strong>';
+    selected = []; shownOutSheet = false;
+    statusHtml = state.activePlayer === ME
+      ? '<strong>Вы ходите первым.</strong> Выберите карты и нажмите «Сходить».'
+      : `<strong>Первым ходит ${name(state.activePlayer)}.</strong>`;
     $('end-sheet').hidden = true;
+    buildSeats();
     save();
     render();
     maybeBot();
@@ -343,36 +377,51 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
   }
   const label = (card, as) => card.rank === 'joker' ? (as ? `джокер→${rl(as)}` : 'джокер') : rl(card.rank) + SUIT[card.suit];
   const sortCards = (cards) => cards.slice().sort((a, b) => (a.rank === 'joker' ? 99 : a.rank) - (b.rank === 'joker' ? 99 : b.rank));
-
-  function zoneOf(view) {
-    if (view.hand.length) return 'hand';
-    if (view.faceUp.length) return 'faceUp';
-    return 'faceDown';
-  }
+  const zoneOf = (v) => v.hand.length ? 'hand' : v.faceUp.length ? 'faceUp' : 'faceDown';
+  function hash(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); }
 
   // ---------- render ----------
+  function buildSeats() {
+    const root = $('bots'); root.innerHTML = '';
+    const bots = state.players.length - 1;
+    root.classList.toggle('solo', bots === 1);
+    root.style.setProperty('--cols', String(Math.min(3, bots)));
+    for (let id = 1; id < state.players.length; id++) {
+      const seat = document.createElement('section'); seat.className = 'seat'; seat.id = `seat-${id}`;
+      seat.innerHTML = `<div class="seat-head"><span class="name">${name(id)}</span><span class="tag"></span></div>
+        <div class="bot-hand"></div><div class="stacks"></div>`;
+      root.appendChild(seat);
+    }
+  }
+
   function render(hiddenIds = new Set()) {
     const v = F.getPlayerView(state, ME);
-    const myTurn = v.phase === 'playing' && v.activePlayer === ME;
+    const playing = v.phase === 'playing';
+    const myTurn = playing && v.activePlayer === ME;
     const zone = zoneOf(v);
 
     $('deck').textContent = v.drawDeckCount;
     $('burned').textContent = v.burnedCount;
-    $('opp-seat').classList.toggle('turn', v.phase === 'playing' && v.activePlayer === BOT);
-    $('me-seat').classList.toggle('turn', myTurn);
-    $('opp-tag').textContent = v.activePlayer === BOT && v.phase === 'playing' ? 'ходит…' : '';
-    $('me-tag').textContent = myTurn ? 'ваш ход' : '';
 
-    // opponent hand: backs only, never values
-    const oh = $('opp-hand'); oh.innerHTML = '';
-    const shown = Math.min(v.opponent.handCount, 9);
-    for (let i = 0; i < shown; i++) oh.appendChild(cardEl(null));
-    const cnt = document.createElement('span'); cnt.className = 'count';
-    cnt.textContent = v.opponent.handCount ? `${v.opponent.handCount} в руке` : 'рука пуста';
-    oh.appendChild(cnt);
+    for (const o of v.opponents) {
+      const seat = $(`seat-${o.id}`); if (!seat) continue;
+      const active = playing && v.activePlayer === o.id;
+      seat.classList.toggle('turn', active);
+      seat.classList.toggle('out', o.place !== null);
+      const tag = seat.querySelector('.tag');
+      tag.textContent = o.place !== null ? `${o.place}-е место` : active ? 'ходит…' : '';
+      tag.classList.toggle('place', o.place !== null);
+      const h = seat.querySelector('.bot-hand'); h.innerHTML = '';
+      h.appendChild(cardEl(null));
+      const t = document.createElement('span'); t.innerHTML = o.handCount ? `в руке <b>${o.handCount}</b>` : 'рука пуста';
+      h.appendChild(t);
+      renderStacks(seat.querySelector('.stacks'), o.faceUp, o.faceDownCount, null, hiddenIds, false);
+    }
 
-    renderStacks($('opp-stacks'), v.opponent.faceUp, v.opponent.faceDownCount, null, hiddenIds);
-    renderStacks($('me-stacks'), v.faceUp, v.faceDownCount, myTurn ? zone : null, hiddenIds);
+    $('seat-0').classList.toggle('turn', myTurn);
+    $('seat-0').classList.toggle('out', v.place !== null);
+    $('me-tag').textContent = v.place !== null ? `${v.place}-е место` : myTurn ? 'ваш ход' : '';
+    renderStacks($('me-stacks'), v.faceUp, v.faceDownCount, myTurn ? zone : null, hiddenIds, true);
 
     // pile
     const pile = $('pile'); const keepBurn = pile.classList.contains('burning');
@@ -385,8 +434,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     top.forEach((p, i) => {
       const el = cardEl(p.card, { as: p.card.rank === 'joker' ? p.effectiveRank : null });
       const off = i - (top.length - 1);
-      const rot = ((hash(p.card.id) % 15) - 7);
-      el.style.transform = `translate(${off * 12}px, ${off * -2}px) rotate(${rot}deg)`;
+      el.style.transform = `translate(${off * 12}px, ${off * -2}px) rotate(${(hash(p.card.id) % 15) - 7}deg)`;
       if (hiddenIds.has(p.card.id)) el.classList.add('hide');
       pile.appendChild(el);
     });
@@ -396,10 +444,11 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 
     // requirement chip
     const need = $('need');
-    if (v.phase === 'finished') need.innerHTML = 'Партия окончена';
+    const whoMust = myTurn ? 'закройте' : 'закрывает';
+    if (!playing) need.innerHTML = 'Партия окончена';
     else if (v.pendingReveal) need.innerHTML = 'Вскрыт <b>джокер</b>';
-    else if (v.pendingContinuation === 'two') need.innerHTML = 'После <b>2</b>: ещё ход, любая карта';
-    else if (v.pendingContinuation === 'burn') need.innerHTML = 'Сожжено: начните новую стопку';
+    else if (v.pendingContinuation === 'two') need.innerHTML = `После <b>2</b>: ${whoMust} любой картой`;
+    else if (v.pendingContinuation === 'four') need.innerHTML = `<b>4</b> одинаковые: ${whoMust} любой картой`;
     else if (v.requiredRank === null) need.innerHTML = 'Можно <b>любую</b> карту';
     else need.innerHTML = `Бей: <b>${rl(v.requiredRank)}</b> и выше · 2, 7, 10, джокер`;
 
@@ -411,13 +460,13 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     hand.classList.toggle('tight', cards.length > 6);
     cards.forEach((card) => {
       const el = cardEl(card);
-      const can = myTurn && zone === 'hand' && !v.pendingReveal;
-      if (can) { el.classList.add('pick'); el.tabIndex = 0; el.onclick = () => toggle(card); el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(card); } }; }
+      if (myTurn && zone === 'hand' && !v.pendingReveal) makePickable(el, card);
       if (selected.includes(card.id)) el.classList.add('sel');
       if (hiddenIds.has(card.id)) el.classList.add('hide');
       hand.appendChild(el);
     });
     $('hand-label').textContent =
+      v.place !== null ? `Вы вышли · ${v.place}-е место` :
       zone === 'hand' ? `Рука · ${v.hand.length}` :
       zone === 'faceUp' ? 'Рука пуста · играйте открытыми картами' :
       'Остались закрытые · нажмите на карту, на удачу';
@@ -429,17 +478,22 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     $('play-btn').textContent = selected.length > 1 ? `Сходить (${selected.length})` : 'Сходить';
   }
 
-  function renderStacks(root, faceUp, faceDownCount, activeZone, hiddenIds) {
+  function makePickable(el, card) {
+    el.classList.add('pick'); el.tabIndex = 0;
+    el.onclick = () => toggle(card);
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(card); } };
+  }
+
+  function renderStacks(root, faceUp, faceDownCount, activeZone, hiddenIds, mine) {
     root.innerHTML = '';
-    const mine = root.id === 'me-stacks';
     const n = Math.max(3, faceUp.length, faceDownCount);
     for (let i = 0; i < n; i++) {
-      const slot = document.createElement('div'); slot.className = 'slot'; slot.dataset.i = i;
+      const slot = document.createElement('div'); slot.className = 'slot';
       const down = i < faceDownCount; const up = faceUp[i];
       if (down) { const d = cardEl(null); d.classList.add('down'); slot.appendChild(d); }
       if (up) {
         const u = cardEl(up); u.classList.add('up');
-        if (mine && activeZone === 'faceUp') { u.classList.add('pick'); u.tabIndex = 0; u.onclick = () => toggle(up); u.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(up); } }; }
+        if (mine && activeZone === 'faceUp') makePickable(u, up);
         else if (mine && activeZone === 'hand') u.classList.add('dim');
         if (selected.includes(up.id)) u.classList.add('sel');
         if (hiddenIds.has(up.id)) u.classList.add('hide');
@@ -455,8 +509,6 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       root.appendChild(slot);
     }
   }
-
-  function hash(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); }
 
   // ---------- selection ----------
   function toggle(card) {
@@ -492,15 +544,9 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     act({ type: 'playCards', player: ME, cardIds: selected.slice(), ...(cards.some((c) => c.rank === 'joker') ? { jokerAs: natural.rank } : {}) });
   }
 
-  function onTake() {
-    if (busy) return;
-    act({ type: 'takePile', player: ME });
-  }
-
   function reveal(index, slotEl) {
     if (busy) return;
-    const r = slotEl.getBoundingClientRect();
-    act({ type: 'revealFaceDown', player: ME, index }, { reveal: r });
+    act({ type: 'revealFaceDown', player: ME, index }, { reveal: slotEl.getBoundingClientRect() });
   }
 
   function openJoker(mode) {
@@ -535,7 +581,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     HAS_LEGAL_MOVE: () => 'Забрать стопку можно, только когда нечем ходить.',
     MUST_CONTINUE: () => 'Нужно сходить ещё раз.',
     INVALID_CARDS: () => 'Сначала доиграйте карты из руки.',
-    NOT_YOUR_TURN: () => 'Сейчас ходит бот.',
+    NOT_YOUR_TURN: () => 'Сейчас не ваш ход.',
   };
 
   async function act(action, opts = {}) {
@@ -552,17 +598,27 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     save();
     await animate(res.events, before, opts);
     busy = false;
+    afterMove();
+  }
+
+  function afterMove() {
     if (state.pendingReveal && state.activePlayer === ME) { render(); openJoker('reveal'); return; }
     render();
     if (state.phase === 'finished') { showEnd(); return; }
+    if (state.finishOrder.includes(ME) && !shownOutSheet) { shownOutSheet = true; save(); showEnd(); }
     maybeBot();
   }
 
+  let botTimer = null;
   function maybeBot() {
-    if (state.phase !== 'playing' || state.activePlayer !== BOT) return;
+    if (state.phase !== 'playing' || state.activePlayer === ME || botTimer) return;
     busy = true; render();
-    setTimeout(async () => {
-      const action = F.chooseBotAction(F.getPlayerView(state, BOT), botRng);
+    const meOut = state.finishOrder.includes(ME);
+    const delay = meOut ? 380 : state.pendingContinuation || state.pendingReveal ? 600 : 800;
+    botTimer = setTimeout(async () => {
+      botTimer = null;
+      const bot = state.activePlayer;
+      const action = F.chooseBotAction(F.getPlayerView(state, bot), botRng);
       const res = F.applyAction(state, action);
       if (!res.ok) { busy = false; statusHtml = 'Бот запутался. Начните новую партию.'; render(); return; }
       const before = { rects: new Map(), pile: $('pile').getBoundingClientRect() };
@@ -570,10 +626,8 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       save();
       await animate(res.events, before, {});
       busy = false;
-      render();
-      if (state.phase === 'finished') { showEnd(); return; }
-      maybeBot();
-    }, state.pendingContinuation || state.pendingReveal ? 650 : 850);
+      afterMove();
+    }, delay);
   }
 
   // ---------- animation + narration ----------
@@ -583,9 +637,9 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     for (const e of events) if (e.type === 'cardsPlayed') e.cards.forEach((p) => flying.add(p.card.id));
     render(flying);
     for (const e of events) {
-      const who = e.player === ME ? 'Вы' : 'Бот';
+      const who = name(e.player);
       if (e.type === 'faceDownRevealed') {
-        msgs.push(`${who} вскрыл${e.player === ME ? 'и' : ''} закрытую: <strong>${label(e.card)}</strong>${e.playable ? '' : ' — не подходит'}`);
+        msgs.push(`${who} — вслепую: <strong>${label(e.card)}</strong>${e.playable ? '' : ', не подходит'}`);
       } else if (e.type === 'cardsPlayed') {
         const txt = e.cards.map((p) => label(p.card, p.card.rank === 'joker' ? p.effectiveRank : null)).join(' ');
         const extra = { continue: ' — и ходит ещё раз', transfer: ' — перевод хода', burn: '' }[e.effect] || '';
@@ -595,46 +649,43 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
         msgs.push(`🔥 Стопка сожжена (${e.count})`);
         await burn();
       } else if (e.type === 'pileTaken') {
-        msgs.push(e.reason === 'blindFail'
-          ? `Не повезло: ${e.player === ME ? 'вы забираете' : 'бот забирает'} стопку (${e.cards.length})`
-          : `${e.player === ME ? 'Вы забрали' : 'Бот забрал'} стопку (${e.cards.length})`);
+        msgs.push(`${e.reason === 'blindFail' ? 'Не повезло: ' : ''}${who} — ${e.player === ME ? 'забираете' : 'забирает'} стопку (${e.cards.length})`);
         await sweep(e, before);
-      } else if (e.type === 'won') {
-        msgs.push(e.player === ME ? '<strong>Вы победили!</strong>' : '<strong>Бот победил.</strong>');
+      } else if (e.type === 'playerFinished') {
+        msgs.push(e.player === ME ? `<strong>Вы вышли! ${e.place}-е место</strong>` : `<strong>${who} вышел — ${e.place}-е место</strong>`);
+      } else if (e.type === 'gameOver') {
+        msgs.push(e.loser === ME ? '<strong>Вы остались последним.</strong>' : `<strong>${name(e.loser)} остался последним.</strong>`);
       }
     }
     if (msgs.length) statusHtml = msgs.slice(-2).join('<br>');
   }
 
-  function flightTarget() {
-    const r = $('pile').getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  function seatRect(player, from) {
+    if (player === ME) return (from === 'hand' ? $('hand') : $('me-stacks')).getBoundingClientRect();
+    return $(`seat-${player}`).getBoundingClientRect();
   }
+  const cardBox = (r) => ({ left: r.left + r.width / 2 - 25, top: r.top + r.height / 2 - 35, width: 50, height: 71 });
 
   function fly(e, before, opts) {
-    const target = flightTarget();
-    const src = e.player === ME
-      ? (e.from === 'hand' ? $('hand') : $('me-stacks'))
-      : (e.from === 'hand' ? $('opp-hand') : $('opp-stacks'));
-    const sr = src.getBoundingClientRect();
-    const fallback = opts.reveal || { left: sr.left + sr.width / 2 - 25, top: sr.top + sr.height / 2 - 35, width: 50, height: 71 };
+    const t = $('pile').getBoundingClientRect();
+    const target = { x: t.left + t.width / 2, y: t.top + t.height / 2 };
+    const fallback = opts.reveal || cardBox(seatRect(e.player, e.from));
     const anims = e.cards.map((p, i) => {
       const from = before.rects.get(p.card.id) || fallback;
+      if (reduceMotion) return Promise.resolve();
       const el = cardEl(p.card, { as: p.card.rank === 'joker' ? p.effectiveRank : null });
       el.classList.add('fly');
-      const w = from.width, h = from.height;
-      el.style.width = w + 'px'; el.style.height = h + 'px';
-      el.style.left = from.left + 'px';
-      el.style.top = from.top + 'px';
+      el.style.setProperty('--cw', from.width + 'px');
+      el.style.left = from.left + 'px'; el.style.top = from.top + 'px';
       document.body.appendChild(el);
-      const dx = target.x - (from.left + w / 2) + i * 10;
-      const dy = target.y - (from.top + h / 2);
-      if (reduceMotion) { el.remove(); return Promise.resolve(); }
-      const a = el.animate([
+      const dx = target.x - (from.left + from.width / 2) + i * 10;
+      const dy = target.y - (from.top + from.height / 2);
+      const scale = 56 / from.width;
+      return el.animate([
         { transform: 'translate(0,0) rotate(0deg) scale(1)' },
-        { transform: `translate(${dx}px, ${dy}px) rotate(${(hash(p.card.id) % 15) - 7}deg) scale(1.12)` },
-      ], { duration: 420, delay: i * 70, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
-      return a.finished.then(() => el.remove(), () => el.remove());
+        { transform: `translate(${dx}px, ${dy}px) rotate(${(hash(p.card.id) % 15) - 7}deg) scale(${scale})` },
+      ], { duration: 420, delay: i * 70, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' })
+        .finished.then(() => el.remove(), () => el.remove());
     });
     return Promise.all(anims).then(() => render());
   }
@@ -648,51 +699,88 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 
   function sweep(e, before) {
     if (reduceMotion) return Promise.resolve();
-    const toEl = e.player === ME ? $('hand') : $('opp-hand');
-    const to = toEl.getBoundingClientRect();
+    const to = e.player === ME ? $('hand').getBoundingClientRect() : seatRect(e.player);
     const from = before.pile;
-    const cards = e.cards.slice(-5);
-    const anims = cards.map((card, i) => {
+    const anims = e.cards.slice(-5).map((card, i) => {
       const el = cardEl(card);
       el.classList.add('fly');
+      el.style.setProperty('--cw', '50px');
       el.style.left = (from.left + from.width / 2 - 25) + 'px';
       el.style.top = (from.top + from.height / 2 - 35) + 'px';
-      el.style.width = '50px'; el.style.height = '71px';
       document.body.appendChild(el);
       const dx = to.left + to.width / 2 - (from.left + from.width / 2);
       const dy = to.top + to.height / 2 - (from.top + from.height / 2);
       return el.animate([
         { transform: 'translate(0,0) scale(1)', opacity: 1 },
-        { transform: `translate(${dx}px, ${dy}px) scale(.7)`, opacity: .2 },
+        { transform: `translate(${dx}px, ${dy}px) scale(.6)`, opacity: .2 },
       ], { duration: 460, delay: i * 50, easing: 'ease-in', fill: 'forwards' }).finished.then(() => el.remove(), () => el.remove());
     });
     return Promise.all(anims);
   }
 
   function showEnd() {
-    const won = state.winner === ME;
-    $('end-title').textContent = won ? 'Победа!' : 'Бот победил';
-    $('end-text').textContent = won ? 'Вы избавились от всех карт.' : 'Бот избавился от всех карт первым. Реванш?';
+    const over = state.phase === 'finished';
+    const myPlace = state.finishOrder.indexOf(ME) + 1;
+    if (over && state.loser === ME) {
+      $('end-title').textContent = 'Вы проиграли';
+      $('end-text').textContent = 'Вы остались последним с картами на руках.';
+    } else if (myPlace === 1) {
+      $('end-title').textContent = 'Победа!';
+      $('end-text').textContent = 'Вы первым избавились от всех карт.';
+    } else {
+      $('end-title').textContent = `${myPlace}-е место`;
+      $('end-text').textContent = over ? 'Партия окончена.' : 'Вы избавились от всех карт. Боты доигрывают.';
+    }
+    const list = $('places'); list.innerHTML = '';
+    const rows = [...state.finishOrder];
+    if (over && state.loser !== null) rows.push(state.loser);
+    rows.forEach((id, i) => {
+      const li = document.createElement('li');
+      const last = over && id === state.loser;
+      li.className = (id === ME ? 'me' : '') + (last ? ' last' : '');
+      li.innerHTML = `<span>${last ? 'Последний' : `${i + 1}-е место`}</span><b>${name(id)}</b>`;
+      list.appendChild(li);
+    });
+    $('end-watch').hidden = over;
+    $('end-btns').style.gridTemplateColumns = over ? '1fr' : '';
     $('end-sheet').hidden = false;
+  }
+
+  // ---------- new game sheet ----------
+  let pickedCount = playerCount;
+  function openNew() {
+    pickedCount = playerCount;
+    const root = $('counts'); root.innerHTML = '';
+    for (let n = 2; n <= 6; n++) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = n;
+      b.setAttribute('aria-pressed', String(n === pickedCount));
+      b.onclick = () => { pickedCount = n; root.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); };
+      root.appendChild(b);
+    }
+    $('new-sheet').hidden = false;
   }
 
   // ---------- wiring ----------
   $('play-btn').onclick = onPlay;
-  $('take-btn').onclick = onTake;
-  $('new-btn').onclick = newGame;
-  $('end-new').onclick = newGame;
+  $('take-btn').onclick = () => { if (!busy) act({ type: 'takePile', player: ME }); };
+  $('new-btn').onclick = openNew;
+  $('new-cancel').onclick = () => { $('new-sheet').hidden = true; };
+  $('new-start').onclick = () => { $('new-sheet').hidden = true; clearTimeout(botTimer); botTimer = null; busy = false; newGame(pickedCount); };
+  $('end-new').onclick = openNew;
+  $('end-watch').onclick = () => { $('end-sheet').hidden = true; };
   $('help-btn').onclick = () => { $('help-sheet').hidden = false; };
   $('help-close').onclick = () => { $('help-sheet').hidden = true; };
   $('joker-cancel').onclick = () => { $('joker-sheet').hidden = true; };
 
   if (load()) {
+    buildSeats();
     statusHtml = 'Партия продолжается.';
     render();
     if (state.phase === 'finished') showEnd();
     else if (state.pendingReveal && state.activePlayer === ME) openJoker('reveal');
     else maybeBot();
   } else {
-    newGame();
+    newGame(6);
   }
 })();
 </script>

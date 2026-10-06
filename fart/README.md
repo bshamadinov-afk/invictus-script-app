@@ -1,15 +1,15 @@
 # FART: card game engine
 
-Deterministic rules engine for **FART**, a custom 1v1 card game (inspired by
+Deterministic rules engine for **FART**, a custom card game for 2–6 players (inspired by
 Durak but with its own rules). This is the authoritative implementation of the
 rules in the project handoff brief. It has no UI and no dependencies, so it can
 drive the web preview now and run on a server for online play later.
 
 ```bash
 npm install
-npm test          # 43 tests: rules, redaction, 200 seeded bot-vs-bot games
+npm test          # rules, redaction, and hundreds of seeded bot games for 2–6 players
 npm run typecheck
-npm run build:web # builds web/index.html: playable page (you vs bot)
+npm run build:web # builds web/index.html: playable page (you vs 1–5 bots)
 ```
 
 Open `web/index.html` in a browser to play. It is a single self-contained
@@ -40,6 +40,8 @@ file, so it can be deployed as-is (e.g. Vercel with `fart/web` as the root).
   `pileTaken`, `faceDownRevealed`, `won`) are appended to `moveHistory` and
   contain only public information, which makes them suitable for animation and
   for an online event stream.
+- **2–6 players** sit in turn order. A player with no cards left goes out
+  (`finishOrder`); the last player still holding cards loses (`loser`).
 - **Zones** are modelled separately (`hand`, `faceUp`, `faceDown`). A player must
   play from hand, then face-up, then face-down (blind, one at a time).
 - **`requiredRank`** is tracked separately from the top physical card, because a
@@ -49,7 +51,9 @@ file, so it can be deployed as-is (e.g. Vercel with `fart/web` as the root).
 - **Special cards are handlers** (`resolveTwo`, `resolveTen`,
   `resolveSevenTransfer`) looked up by *effective* rank, so a Joker declared as
   2, 7 or 10 reuses exactly the same behavior. The provisional 7 rule lives in
-  one function.
+  one function. A 10 burns the pile and the next player leads. Four cards of one
+  rank in a single move work like a 2 (`applyFourOfAKind`): the same player
+  must cover them.
 - **Hidden information.** Card ids (`c00`…`c55`) are assigned after shuffling and
   never encode a value. `getPlayerView` reduces the opponent's hand, all
   face-down cards and the draw deck to counts. Tests check this across full games.

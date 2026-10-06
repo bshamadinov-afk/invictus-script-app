@@ -21,75 +21,73 @@ function publiclySeen(s: GameState): Set<string> {
   return seen;
 }
 
+/** Card ids `me` must never see: others' hands, every face-down card and the deck, unless they were shown publicly. */
+function hiddenFrom(s: GameState, me: number): string[] {
+  const seen = publiclySeen(s);
+  const ids: string[] = [];
+  for (const p of s.players) {
+    if (p.id !== me) ids.push(...p.hand.map((c) => c.id));
+    ids.push(...p.faceDown.map((c) => c.id));
+  }
+  ids.push(...s.drawDeck.map((c) => c.id));
+  return ids.filter((id) => !seen.has(id));
+}
+
+function runBotGame(seed: number, playerCount: number, onStep?: (s: GameState) => void): GameState {
+  let s = createGame({ seed, playerCount });
+  const rng = createRng(seed * 7919 + playerCount);
+  for (let step = 0; step < 5000 && s.phase === 'playing'; step++) {
+    onStep?.(s);
+    const r = applyAction(s, chooseBotAction(getPlayerView(s, s.activePlayer), rng));
+    if (!r.ok) throw new Error(`seed ${seed} (${playerCount}p) step ${step}: ${r.code} ${r.message}`);
+    s = r.state;
+  }
+  return s;
+}
+
 describe('player view', () => {
-  it('never exposes opponent hand, any face-down card, or the deck', () => {
-    const g = createGame({ seed: 3 });
+  it('never exposes other hands, any face-down card, or the deck', () => {
+    const g = createGame({ seed: 3, playerCount: 6 });
     const view = getPlayerView(g, 0);
     const json = JSON.stringify(view);
-    const hidden = [...g.players[1].hand, ...g.players[0].faceDown, ...g.players[1].faceDown, ...g.drawDeck];
-    for (const card of hidden) expect(json).not.toContain(`"${card.id}"`);
-    expect(view.opponent.handCount).toBe(3);
-    expect(view.opponent.faceUp).toEqual(g.players[1].faceUp);
-    expect(view.faceDownCount).toBe(3);
-    expect(view.drawDeckCount).toBe(38);
+    for (const id of hiddenFrom(g, 0)) expect(json).not.toContain(`"${id}"`);
+    expect(view.opponents.map((o) => o.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(view.opponents.every((o) => o.handCount === 3 && o.faceDownCount === 3)).toBe(true);
+    expect(view.opponents[0]!.faceUp).toEqual(g.players[1]!.faceUp);
+    expect(view.drawDeckCount).toBe(2);
   });
 
   it('keeps hidden values hidden throughout full bot games', () => {
-    for (let seed = 1; seed <= 10; seed++) {
-      let s = createGame({ seed });
-      const rng = createRng(seed);
-      for (let step = 0; step < 2000 && s.phase === 'playing'; step++) {
-        for (const me of [0, 1] as const) {
+    for (const [seed, n] of [[1, 2], [2, 3], [3, 6]] as const) {
+      runBotGame(seed, n, (s) => {
+        for (let me = 0; me < n; me++) {
           const json = JSON.stringify(getPlayerView(s, me));
-          const opp = s.players[me === 0 ? 1 : 0];
-          const seen = publiclySeen(s);
-          for (const card of [...opp.hand, ...opp.faceDown, ...s.players[me].faceDown, ...s.drawDeck]) {
-            // A card the opponent picked up from the pile was public; everything else must stay unseen.
-            if (!seen.has(card.id)) expect(json).not.toContain(`"${card.id}"`);
-          }
+          for (const id of hiddenFrom(s, me)) expect(json).not.toContain(`"${id}"`);
         }
-        const r = applyAction(s, chooseBotAction(getPlayerView(s, s.activePlayer), rng));
-        if (!r.ok) throw new Error(r.message);
-        s = r.state;
-      }
+      });
     }
   });
 });
 
-describe('bot vs bot simulation', () => {
-  it('only produces legal actions, conserves all 56 cards, and games finish', () => {
-    let finished = 0;
-    const games = 200;
-    for (let seed = 1; seed <= games; seed++) {
-      let s = createGame({ seed });
-      const rng = createRng(seed * 7919);
-      for (let step = 0; step < 3000 && s.phase === 'playing'; step++) {
-        const action = chooseBotAction(getPlayerView(s, s.activePlayer), rng);
-        const r = applyAction(s, action);
-        if (!r.ok) throw new Error(`seed ${seed} step ${step}: ${r.code} ${r.message}`);
-        s = r.state;
-        expect(countCards(s)).toBe(DECK_SIZE);
+describe('bot simulation', () => {
+  for (const n of [2, 3, 4, 6]) {
+    it(`${n} players: only legal actions, all 56 cards conserved, every game finishes`, () => {
+      const games = n === 2 ? 150 : 60;
+      for (let seed = 1; seed <= games; seed++) {
+        const s = runBotGame(seed, n, (st) => expect(countCards(st)).toBe(DECK_SIZE));
+        expect(s.phase).toBe('finished');
+        expect(s.finishOrder).toHaveLength(n - 1);
+        expect(s.loser).not.toBeNull();
+        expect(new Set([...s.finishOrder, s.loser]).size).toBe(n);
+        for (const id of s.finishOrder) {
+          const p = s.players[id]!;
+          expect(p.hand.length + p.faceUp.length + p.faceDown.length).toBe(0);
+        }
       }
-      if (s.phase === 'finished') {
-        finished++;
-        const w = s.players[s.winner!];
-        expect(w.hand.length + w.faceUp.length + w.faceDown.length).toBe(0);
-      }
-    }
-    expect(finished).toBe(games);
-  });
+    });
+  }
 
   it('replays identically from the same seed and actions', () => {
-    const run = () => {
-      let s = createGame({ seed: 99 });
-      const rng = createRng(1);
-      while (s.phase === 'playing') {
-        const r = applyAction(s, chooseBotAction(getPlayerView(s, s.activePlayer), rng));
-        if (!r.ok) throw new Error(r.message);
-        s = r.state;
-      }
-      return s;
-    };
-    expect(run()).toEqual(run());
+    expect(runBotGame(99, 6)).toEqual(runBotGame(99, 6));
   });
 });

@@ -69,13 +69,49 @@ describe('multiple cards of the same rank', () => {
     expectError(play(makeState({ hand: [a, b] }), [a, b]), 'MIXED_RANKS');
   });
 
-  it('four of a kind does NOT burn', () => {
+  it('four of a kind works like a 2: same player must cover it, anything goes', () => {
     const quads = [c(9), c(9), c(9), c(9)];
-    const s = ok(play(makeState({ hand: [...quads, c(3)], centerPile: pile(8) }), quads));
+    const three = c(3);
+    let s = ok(play(makeState({ hand: [...quads, three], centerPile: pile(8) }), quads));
     expect(s.centerPile).toHaveLength(5);
     expect(s.burned).toHaveLength(0);
-    expect(s.requiredRank).toBe(9);
+    expect(s.activePlayer).toBe(0);
+    expect(s.pendingContinuation).toBe('four');
+    expect(s.requiredRank).toBeNull();
+    expectError(applyAction(s, { type: 'takePile', player: 0 }), 'MUST_CONTINUE');
+    s = ok(play(s, [three]));
+    expect(s.requiredRank).toBe(3);
     expect(s.activePlayer).toBe(1);
+  });
+
+  it('three of a kind is just a normal move', () => {
+    const trips = [c(9), c(9), c(9)];
+    const s = ok(play(makeState({ hand: [...trips, c(3)], centerPile: pile(8) }), trips));
+    expect(s.activePlayer).toBe(1);
+    expect(s.pendingContinuation).toBeNull();
+  });
+
+  it('a Joker counts toward four of a kind', () => {
+    const set = [c(5), c(5), c(5), c('J')];
+    const s = ok(play(makeState({ hand: [...set, c(3)] }), set));
+    expect(s.pendingContinuation).toBe('four');
+  });
+
+  it('four 7s continue instead of transferring', () => {
+    const sevens = [c(7), c(7), c(7), c(7)];
+    const s = ok(play(makeState({ hand: [...sevens, c(3)], centerPile: pile(9) }), sevens));
+    expect(s.activePlayer).toBe(0);
+    expect(s.requiredRank).toBeNull();
+    expect(s.moveHistory.some((e) => e.type === 'turnTransferred')).toBe(false);
+  });
+
+  it('four 10s burn and the same player goes again', () => {
+    const tens = [c(10), c(10), c(10), c(10)];
+    const s = ok(play(makeState({ hand: [...tens, c(3)], centerPile: pile(9) }), tens));
+    expect(s.centerPile).toHaveLength(0);
+    expect(s.burned).toHaveLength(5);
+    expect(s.activePlayer).toBe(0);
+    expect(s.pendingContinuation).toBe('four');
   });
 
   it('caps a move at 4 cards', () => {
@@ -88,7 +124,7 @@ describe('drawing back to three', () => {
   it('refills the hand to 3 after a move while the deck lasts', () => {
     const pair = [c(9), c(9)];
     const s = ok(play(makeState({ hand: [...pair, c(4)], drawDeck: [c(12), c(13), c(14)] }), pair));
-    expect(s.players[0].hand).toHaveLength(3);
+    expect(s.players[0]!.hand).toHaveLength(3);
     expect(s.drawDeck).toHaveLength(1);
     expect(s.moveHistory).toContainEqual({ type: 'cardsDrawn', player: 0, count: 2 });
   });
@@ -96,14 +132,14 @@ describe('drawing back to three', () => {
   it('draws only what is left in the deck', () => {
     const pair = [c(9), c(9)];
     const s = ok(play(makeState({ hand: [...pair, c(4)], drawDeck: [c(12)] }), pair));
-    expect(s.players[0].hand).toHaveLength(2);
+    expect(s.players[0]!.hand).toHaveLength(2);
     expect(s.drawDeck).toHaveLength(0);
   });
 
   it('does not draw when the hand is already 3 or more', () => {
     const nine = c(9);
     const s = ok(play(makeState({ hand: [nine, c(3), c(4), c(5)], drawDeck: [c(12)] }), [nine]));
-    expect(s.players[0].hand).toHaveLength(3);
+    expect(s.players[0]!.hand).toHaveLength(3);
     expect(s.drawDeck).toHaveLength(1);
   });
 });
@@ -130,20 +166,20 @@ describe('2: continuation', () => {
   it('draws before continuing so an emptied hand can still follow up', () => {
     const twos = [c(2), c(2), c(2)];
     const s = ok(play(makeState({ hand: twos, drawDeck: [c(11), c(12), c(13)] }), twos));
-    expect(s.players[0].hand).toHaveLength(3);
+    expect(s.players[0]!.hand).toHaveLength(3);
     expect(s.activePlayer).toBe(0);
   });
 });
 
 describe('10: burn', () => {
-  it('burns the whole pile, including the 10, and the same player starts fresh', () => {
+  it('burns the whole pile, including the 10; the next player starts a fresh pile', () => {
     const ten = c(10);
     const s = ok(play(makeState({ hand: [ten, c(3), c(4)], centerPile: pile(9, 13, 14) }), [ten]));
     expect(s.centerPile).toHaveLength(0);
     expect(s.burned).toHaveLength(4);
     expect(s.requiredRank).toBeNull();
-    expect(s.activePlayer).toBe(0);
-    expect(s.pendingContinuation).toBe('burn');
+    expect(s.activePlayer).toBe(1);
+    expect(s.pendingContinuation).toBeNull();
     expect(s.moveHistory).toContainEqual({ type: 'pileBurned', player: 0, count: 4 });
   });
 
@@ -191,11 +227,12 @@ describe('Joker', () => {
     expect(s.pendingContinuation).toBe('two');
   });
 
-  it('as 10 burns', () => {
+  it('as 10 burns and passes the turn', () => {
     const j = c('J');
     const s = ok(play(makeState({ hand: [j, c(3), c(4)], centerPile: pile(14, 13) }), [j], 10));
     expect(s.centerPile).toHaveLength(0);
     expect(s.burned).toHaveLength(3);
+    expect(s.activePlayer).toBe(1);
   });
 
   it('as 7 transfers', () => {
@@ -222,7 +259,7 @@ describe('taking the pile', () => {
 
   it('moves the whole pile to hand; the opponent starts a fresh pile', () => {
     const s = ok(applyAction(makeState({ hand: [c(3), c(4)], centerPile: pile(9, 11, 14) }), { type: 'takePile', player: 0 }));
-    expect(s.players[0].hand).toHaveLength(5);
+    expect(s.players[0]!.hand).toHaveLength(5);
     expect(s.centerPile).toHaveLength(0);
     expect(s.requiredRank).toBeNull();
     expect(s.activePlayer).toBe(1);
@@ -244,15 +281,15 @@ describe('endgame zones', () => {
   it('plays face-up cards once the hand is empty and the deck is gone', () => {
     const k1 = c(13), k2 = c(13);
     const s = ok(play(makeState({ hand: [], faceUp: [k1, k2, c(5)], centerPile: pile(9) }), [k1, k2]));
-    expect(s.players[0].faceUp).toHaveLength(1);
+    expect(s.players[0]!.faceUp).toHaveLength(1);
     expect(s.requiredRank).toBe(13);
   });
 
   it('takes the pile into hand when no face-up card fits', () => {
     const s0 = makeState({ hand: [], faceUp: [c(3), c(4), c(5)], centerPile: pile(9) });
     const s = ok(applyAction(s0, { type: 'takePile', player: 0 }));
-    expect(s.players[0].hand).toHaveLength(1);
-    expect(s.players[0].faceUp).toHaveLength(3);
+    expect(s.players[0]!.hand).toHaveLength(1);
+    expect(s.players[0]!.faceUp).toHaveLength(3);
   });
 
   it('face-down cards can only be revealed, never selected by id', () => {
@@ -265,7 +302,7 @@ describe('endgame zones', () => {
   it('a revealed legal face-down card is played normally', () => {
     const k = c(13);
     const s = ok(applyAction(makeState({ hand: [], faceUp: [], faceDown: [c(3), k, c(4)], centerPile: pile(9) }), { type: 'revealFaceDown', player: 0, index: 1 }));
-    expect(s.players[0].faceDown).toHaveLength(2);
+    expect(s.players[0]!.faceDown).toHaveLength(2);
     expect(s.centerPile.at(-1)?.card.id).toBe(k.id);
     expect(s.activePlayer).toBe(1);
     expect(s.moveHistory[0]).toMatchObject({ type: 'faceDownRevealed', playable: true });
@@ -275,8 +312,8 @@ describe('endgame zones', () => {
     const three = c(3);
     const p = pile(9, 12);
     const s = ok(applyAction(makeState({ hand: [], faceUp: [], faceDown: [three, c(4)], centerPile: p }), { type: 'revealFaceDown', player: 0, index: 0 }));
-    expect(ids(s.players[0].hand)).toEqual(ids([...p.map((x) => x.card), three]));
-    expect(s.players[0].faceDown).toHaveLength(1);
+    expect(ids(s.players[0]!.hand)).toEqual(ids([...p.map((x) => x.card), three]));
+    expect(s.players[0]!.faceDown).toHaveLength(1);
     expect(s.centerPile).toHaveLength(0);
     expect(s.activePlayer).toBe(1);
     expect(s.moveHistory.at(-1)).toMatchObject({ type: 'pileTaken', reason: 'blindFail' });
@@ -291,7 +328,7 @@ describe('endgame zones', () => {
     s = ok(applyAction(s, { type: 'chooseJokerIdentity', player: 0, rank: 10 }));
     expect(s.pendingReveal).toBeNull();
     expect(s.centerPile).toHaveLength(0);
-    expect(s.activePlayer).toBe(0);
+    expect(s.activePlayer).toBe(1);
   });
 
   it('after a 2, the follow-up face-down card is always legal', () => {
@@ -302,19 +339,76 @@ describe('endgame zones', () => {
   });
 });
 
-describe('winning', () => {
-  it('wins when hand, face-up and face-down are all empty', () => {
+describe('finishing', () => {
+  it('in a 2-player game the first player out wins and the other loses', () => {
     const k = c(13);
     const s = ok(applyAction(makeState({ hand: [], faceUp: [], faceDown: [k], centerPile: pile(9) }), { type: 'revealFaceDown', player: 0, index: 0 }));
     expect(s.phase).toBe('finished');
     expect(s.winner).toBe(0);
+    expect(s.loser).toBe(1);
+    expect(s.moveHistory).toContainEqual({ type: 'playerFinished', player: 0, place: 1 });
+    expect(s.moveHistory).toContainEqual({ type: 'gameOver', loser: 1 });
     expectError(applyAction(s, { type: 'takePile', player: 1 }), 'GAME_OVER');
   });
 
-  it('a last-card 2 or 10 wins immediately instead of demanding a follow-up', () => {
-    const ten = c(10);
-    const s = ok(play(makeState({ hand: [], faceUp: [ten], faceDown: [] }), [ten]));
+  it('a last-card 2 goes out immediately instead of demanding a follow-up', () => {
+    const two = c(2);
+    const s = ok(play(makeState({ hand: [], faceUp: [two], faceDown: [] }), [two]));
     expect(s.winner).toBe(0);
     expect(s.pendingContinuation).toBeNull();
+  });
+
+  it('with 3+ players the game goes on, skipping players who are out, until one is left', () => {
+    const k = c(13);
+    let s = makeState({ hand: [], faceUp: [k], faceDown: [], centerPile: pile(9), extraPlayers: [{}] });
+    s = ok(play(s, [k]));
+    expect(s.phase).toBe('playing');
+    expect(s.finishOrder).toEqual([0]);
+    expect(s.activePlayer).toBe(1);
+
+    // Player 2 goes out next; then only player 1 is left and loses.
+    const q = c(14);
+    s.players[2] = { id: 2, hand: [], faceUp: [q], faceDown: [] };
+    s.activePlayer = 2;
+    s = ok(play(s, [q]));
+    expect(s.phase).toBe('finished');
+    expect(s.finishOrder).toEqual([0, 2]);
+    expect(s.loser).toBe(1);
+  });
+});
+
+describe('more than two players', () => {
+  it('deals 9 cards to each of 6 players and leaves 2 in the deck', () => {
+    const g = createGame({ seed: 5, playerCount: 6 });
+    expect(g.players).toHaveLength(6);
+    for (const p of g.players) expect(p.hand.length + p.faceUp.length + p.faceDown.length).toBe(9);
+    expect(g.drawDeck).toHaveLength(2);
+  });
+
+  it('rejects fewer than 2 or more than 6 players', () => {
+    expect(() => createGame({ seed: 1, playerCount: 7 })).toThrow(RangeError);
+    expect(() => createGame({ seed: 1, playerCount: 1 })).toThrow(RangeError);
+  });
+
+  it('turn passes clockwise and skips players who are out', () => {
+    const nine = c(9);
+    const s = ok(play(makeState({ hand: [nine, c(3)], extraPlayers: [{}, {}], finishOrder: [1] }), [nine]));
+    expect(s.activePlayer).toBe(2);
+  });
+
+  it('7 transfers to the next player; taking the pile hands the lead to the next player', () => {
+    const seven = c(7);
+    let s = ok(play(makeState({ hand: [seven, c(3)], centerPile: pile(9), extraPlayers: [{}] }), [seven]));
+    expect(s.activePlayer).toBe(1);
+    expect(s.requiredRank).toBe(9);
+    s = ok(applyAction(s, { type: 'takePile', player: 1 }));
+    expect(s.activePlayer).toBe(2);
+    expect(s.requiredRank).toBeNull();
+  });
+
+  it('10 hands the fresh pile to the next player', () => {
+    const ten = c(10);
+    const s = ok(play(makeState({ hand: [ten, c(3)], centerPile: pile(14), extraPlayers: [{}] }), [ten]));
+    expect(s.activePlayer).toBe(1);
   });
 });

@@ -13,25 +13,45 @@ import type {
   Zone,
 } from './types';
 
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS = 6;
+
 export interface CreateGameOptions {
   seed: number;
-  /** Defaults to a seeded coin flip. */
+  /** 2–6 (default 2). Six players use 54 of the 56 cards in the deal. */
+  playerCount?: number;
+  /** Defaults to a seeded random seat. */
   startingPlayer?: PlayerId;
   rules?: RulesConfig;
 }
 
-export function opponentOf(player: PlayerId): PlayerId {
-  return player === 0 ? 1 : 0;
+export function isOut(state: GameState, player: PlayerId): boolean {
+  return state.finishOrder.includes(player);
+}
+
+/** The next seat after `player` that still has cards. */
+export function nextPlayer(state: GameState, player: PlayerId): PlayerId {
+  const n = state.players.length;
+  for (let k = 1; k <= n; k++) {
+    const candidate = (player + k) % n;
+    if (!isOut(state, candidate)) return candidate;
+  }
+  return player;
 }
 
 /** Shuffle and deal: 3 face-down, then 3 face-up on top, then 3 to hand, per player. */
-export function createGame({ seed, startingPlayer, rules = DEFAULT_RULES }: CreateGameOptions): GameState {
+export function createGame({ seed, playerCount = 2, startingPlayer, rules = DEFAULT_RULES }: CreateGameOptions): GameState {
+  if (!Number.isInteger(playerCount) || playerCount < MIN_PLAYERS || playerCount > MAX_PLAYERS) {
+    throw new RangeError(`playerCount must be ${MIN_PLAYERS}–${MAX_PLAYERS}`);
+  }
   const rng = createRng(seed);
   const deck = createShuffledDeck(rng);
-  const players: [PlayerState, PlayerState] = [
-    { id: 0, hand: [], faceUp: [], faceDown: [] },
-    { id: 1, hand: [], faceUp: [], faceDown: [] },
-  ];
+  const players: PlayerState[] = Array.from({ length: playerCount }, (_, id) => ({
+    id,
+    hand: [],
+    faceUp: [],
+    faceDown: [],
+  }));
   const deal = (zone: Zone, n: number) => {
     for (const p of players) p[zone].push(...deck.splice(0, n));
   };
@@ -45,12 +65,14 @@ export function createGame({ seed, startingPlayer, rules = DEFAULT_RULES }: Crea
     drawDeck: deck,
     centerPile: [],
     burned: [],
-    activePlayer: startingPlayer ?? (rng() < 0.5 ? 0 : 1),
+    activePlayer: startingPlayer ?? Math.floor(rng() * playerCount),
     requiredRank: null,
     pendingContinuation: null,
     pendingReveal: null,
     phase: 'playing',
+    finishOrder: [],
     winner: null,
+    loser: null,
     moveHistory: [],
     turn: 0,
   };
@@ -111,7 +133,7 @@ export function playOptions(
 }
 
 export function hasLegalPlay(state: GameState, player: PlayerId, rules: RulesConfig = DEFAULT_RULES): boolean {
-  const p = state.players[player];
+  const p = state.players[player]!;
   const zone = activeZone(p);
   // A blind face-down card can always be attempted; failure is resolved by the engine.
   if (zone === 'faceDown') return p.faceDown.length > 0;
@@ -160,7 +182,7 @@ function playCards(
   rules: RulesConfig,
   events: GameEvent[],
 ): ActionResult | null {
-  const player = s.players[playerId];
+  const player = s.players[playerId]!;
   const zone = activeZone(player);
   if (zone === 'faceDown') {
     return fail('WRONG_ZONE', 'Only face-down cards remain: reveal one with revealFaceDown.');
@@ -221,7 +243,7 @@ function revealFaceDown(
   rules: RulesConfig,
   events: GameEvent[],
 ): ActionResult | null {
-  const player = s.players[playerId];
+  const player = s.players[playerId]!;
   if (activeZone(player) !== 'faceDown') {
     return fail('WRONG_ZONE', 'Face-down cards are played only after your hand and face-up cards are gone.');
   }
@@ -293,19 +315,28 @@ function resolvePlay(
 
   drawUp(s, playerId, rules, events);
 
-  if (cardsRemaining(s.players[playerId]) === 0) {
-    s.phase = 'finished';
-    s.winner = playerId;
+  if (cardsRemaining(s.players[playerId]!) === 0) {
+    // Out of cards: the player leaves the game, even if they owed a follow-up card.
     s.pendingContinuation = null;
-    events.push({ type: 'won', player: playerId });
+    s.finishOrder.push(playerId);
+    if (s.winner === null) s.winner = playerId;
+    events.push({ type: 'playerFinished', player: playerId, place: s.finishOrder.length });
+    const left = s.players.filter((p) => !isOut(s, p.id));
+    if (left.length <= 1) {
+      s.phase = 'finished';
+      s.loser = left[0]?.id ?? null;
+      if (s.loser !== null) events.push({ type: 'gameOver', loser: s.loser });
+      return;
+    }
+    s.activePlayer = nextPlayer(s, playerId);
     return;
   }
 
   if (res.nextPlayer === 'same') {
-    s.pendingContinuation = res.burn ? 'burn' : 'two';
+    s.pendingContinuation = res.continuation ?? 'two';
   } else {
     s.pendingContinuation = null;
-    s.activePlayer = opponentOf(playerId);
+    s.activePlayer = nextPlayer(s, playerId);
     if (res.effect === 'transfer') {
       events.push({ type: 'turnTransferred', from: playerId, to: s.activePlayer, requiredRank: s.requiredRank });
     }
@@ -320,16 +351,16 @@ function pickUpPile(
   events: GameEvent[],
 ): void {
   const cards = [...s.centerPile.map((p) => p.card), ...extra];
-  s.players[playerId].hand.push(...cards);
+  s.players[playerId]!.hand.push(...cards);
   s.centerPile = [];
   s.requiredRank = null;
   s.pendingContinuation = null;
-  s.activePlayer = opponentOf(playerId);
+  s.activePlayer = nextPlayer(s, playerId);
   events.push({ type: 'pileTaken', player: playerId, cards, reason });
 }
 
 function drawUp(s: GameState, playerId: PlayerId, rules: RulesConfig, events: GameEvent[]): void {
-  const hand = s.players[playerId].hand;
+  const hand = s.players[playerId]!.hand;
   const need = Math.min(rules.handSize - hand.length, s.drawDeck.length);
   if (need <= 0) return;
   hand.push(...s.drawDeck.splice(0, need));

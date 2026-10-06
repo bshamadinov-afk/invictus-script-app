@@ -28,6 +28,9 @@ interface Setup {
   centerPile?: PlayedCard[];
   requiredRank?: Rank | null;
   pendingContinuation?: GameState['pendingContinuation'];
+  /** Extra seats after the two default players (for 3+ player tests). */
+  extraPlayers?: Array<{ hand?: Card[]; faceUp?: Card[]; faceDown?: Card[] }>;
+  finishOrder?: PlayerId[];
 }
 
 /** A hand-built mid-game state; player 0 to move. Defaults keep both players far from winning. */
@@ -43,6 +46,12 @@ export function makeState(s: Setup = {}): GameState {
         faceUp: s.oppFaceUp ?? [c(4), c(4), c(4)],
         faceDown: s.oppFaceDown ?? [c(9), c(9), c(9)],
       },
+      ...(s.extraPlayers ?? []).map((p, i) => ({
+        id: i + 2,
+        hand: p.hand ?? [c(3), c(3), c(3)],
+        faceUp: p.faceUp ?? [c(4), c(4), c(4)],
+        faceDown: p.faceDown ?? [c(9), c(9), c(9)],
+      })),
     ],
     drawDeck: s.drawDeck ?? [],
     centerPile,
@@ -52,7 +61,9 @@ export function makeState(s: Setup = {}): GameState {
     pendingContinuation: s.pendingContinuation ?? null,
     pendingReveal: null,
     phase: 'playing',
-    winner: null,
+    finishOrder: s.finishOrder ?? [],
+    winner: s.finishOrder?.[0] ?? null,
+    loser: null,
     moveHistory: [],
     turn: 0,
   };

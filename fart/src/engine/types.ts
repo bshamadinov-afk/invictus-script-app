@@ -1,7 +1,10 @@
 import type { Card, Rank } from './cards';
-import type { SpecialEffect } from './rules';
+import type { ContinuationReason, SpecialEffect } from './rules';
 
-export type PlayerId = 0 | 1;
+export type { ContinuationReason };
+
+/** Seat index, 0..playerCount-1, in turn order. */
+export type PlayerId = number;
 export type Zone = 'hand' | 'faceUp' | 'faceDown';
 
 /** A card on the center pile together with the identity it was played as. */
@@ -19,12 +22,11 @@ export interface PlayerState {
   faceDown: Card[];
 }
 
-export type ContinuationReason = 'two' | 'burn';
-
 export interface GameState {
   /** Plain JSON data only (rules live outside the state), so it can be cloned, stored and sent over the wire. */
   seed: number;
-  players: [PlayerState, PlayerState];
+  /** 2–6 players, seated in turn order. */
+  players: PlayerState[];
   drawDeck: Card[];
   /** Ordered bottom → top. */
   centerPile: PlayedCard[];
@@ -32,12 +34,17 @@ export interface GameState {
   activePlayer: PlayerId;
   /** Effective rank to match or beat; tracked separately from the top card because of 7 and Joker. */
   requiredRank: Rank | null;
-  /** Set when the active player must play again (after a 2 or a 10 burn). */
+  /** Set when the active player must play again (after a 2 or four of a kind). */
   pendingContinuation: ContinuationReason | null;
   /** A face-down Joker that was revealed and is waiting for chooseJokerIdentity. */
   pendingReveal: Card | null;
   phase: 'playing' | 'finished';
+  /** Players who got rid of all their cards, in the order they went out. */
+  finishOrder: PlayerId[];
+  /** First player out. */
   winner: PlayerId | null;
+  /** The last player left holding cards once the game is over. */
+  loser: PlayerId | null;
   /** Public event log. Contains nothing a spectator could not have seen. */
   moveHistory: GameEvent[];
   /** Number of accepted actions; doubles as a sequence number for online sync. */
@@ -63,7 +70,8 @@ export type GameEvent =
   | { type: 'cardsDrawn'; player: PlayerId; count: number }
   | { type: 'pileTaken'; player: PlayerId; cards: Card[]; reason: 'noLegalMove' | 'blindFail' }
   | { type: 'faceDownRevealed'; player: PlayerId; card: Card; playable: boolean }
-  | { type: 'won'; player: PlayerId };
+  | { type: 'playerFinished'; player: PlayerId; place: number }
+  | { type: 'gameOver'; loser: PlayerId };
 
 export type ErrorCode =
   | 'GAME_OVER'
