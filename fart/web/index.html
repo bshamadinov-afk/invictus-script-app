@@ -53,6 +53,8 @@ body {
   box-sizing: border-box;
   display: grid;
   grid-template-rows: auto 1fr auto auto auto auto;
+  /* minmax(0, …) stops a wide row (a big hand) from widening the whole page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 button { font-family: var(--body); }
@@ -196,10 +198,11 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 .status strong { color: var(--text); font-weight: 600; }
 
 /* hand */
-.hand-wrap { overflow-x: auto; overflow-y: visible; scrollbar-width: none; padding-top: 16px; margin-top: -12px; }
+.hand-row { min-width: 0; }
+.hand-wrap { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-top: 16px; margin-top: -12px; overscroll-behavior-x: contain; }
 .hand-wrap::-webkit-scrollbar { display: none; }
-.hand { display: flex; gap: 6px; justify-content: center; min-width: min-content; padding-inline: 2px; padding-bottom: 4px; }
-.hand.tight .card + .card { margin-left: calc(var(--cw) * -0.42); }
+/* Cards overlap more as the hand grows (see layoutHand); margin-inline:auto centres it without clipping the start when it scrolls. */
+.hand { display: flex; width: max-content; margin-inline: auto; padding-inline: 2px; padding-bottom: 4px; }
 .hand-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); text-align: center; }
 
 /* actions */
@@ -319,7 +322,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     <div class="stacks" id="me-stacks"></div>
   </section>
 
-  <div>
+  <div class="hand-row">
     <div class="hand-label" id="hand-label">Рука</div>
     <div class="hand-wrap"><div class="hand" id="hand"></div></div>
   </div>
@@ -596,7 +599,6 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
 
     const hand = $('hand'); hand.innerHTML = '';
     const cards = sortCards(v.hand);
-    hand.classList.toggle('tight', cards.length > 6);
     cards.forEach((card) => {
       const el = cardEl(card);
       if (myTurn && zone === 'hand' && !v.pendingReveal) makePickable(el, card);
@@ -604,6 +606,7 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
       if (hiddenIds.has(card.id)) el.classList.add('hide');
       hand.appendChild(el);
     });
+    layoutHand(hand);
     $('hand-label').textContent =
       v.place !== null ? `Вы вышли · ${v.place}-е место` :
       zone === 'hand' ? `Рука · ${v.hand.length}` :
@@ -614,6 +617,19 @@ button:focus-visible, .card:focus-visible, .slot:focus-visible { outline: 2px so
     $('play-btn').disabled = !(myTurn && selected.length && !busy);
     $('take-btn').disabled = !(myTurn && !legal && !v.pendingContinuation && !v.pendingReveal && !busy);
     $('play-btn').textContent = selected.length > 1 ? `Сходить (${selected.length})` : 'Сходить';
+  }
+
+  // Fit the hand to the screen: spread cards normally, overlap them as the hand grows, and only
+  // when even a tight overlap (rank corner still visible) cannot fit, let the row scroll sideways.
+  function layoutHand(hand) {
+    const els = [...hand.children];
+    if (!els.length) return;
+    const cw = els[0].offsetWidth;
+    const room = hand.parentElement.clientWidth - 8;
+    const spread = cw + 6;
+    const minStep = Math.min(spread, Math.max(22, cw * 0.42));
+    const step = els.length > 1 ? Math.max(minStep, Math.min(spread, (room - cw) / (els.length - 1))) : spread;
+    els.forEach((el, i) => { el.style.marginLeft = i ? `${step - cw}px` : '0'; });
   }
 
   function renderDeck(count) {
